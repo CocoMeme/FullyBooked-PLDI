@@ -16,6 +16,7 @@ import { logoutUser } from '../context/actions/auth.action';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import Button from '../components/Button';
+import Header from '../components/Header';
 
 const AccountScreen = () => {
   const context = useContext(AuthGlobal);
@@ -113,11 +114,9 @@ const AccountScreen = () => {
 
   return (
     <SafeAreaView style={styles.container}>
+      <Header title="My Account" />
+      
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>My Account</Text>
-        </View>
-
         <View style={styles.profileSection}>
           <Image 
             source={{ uri: userData?.avatar || 'https://via.placeholder.com/150' }} 
@@ -190,16 +189,6 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  header: {
-    padding: SIZES.medium,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-  },
-  headerTitle: {
-    ...FONTS.bold,
-    fontSize: SIZES.large,
-    color: COLORS.primary,
   },
   profileSection: {
     alignItems: 'center',

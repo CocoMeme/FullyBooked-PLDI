@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { COLORS, FONTS, SIZES } from '../constants/theme';
 import Button from '../components/Button';
+import Header from '../components/Header';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const CartScreen = ({ navigation }) => {
@@ -35,6 +36,7 @@ const CartScreen = ({ navigation }) => {
       setLoading(true);
       const cartData = await AsyncStorage.getItem('cart');
       let parsedCart = cartData ? JSON.parse(cartData) : [];
+      
       setCartItems(parsedCart);
       
       // Calculate total
@@ -165,26 +167,33 @@ const CartScreen = ({ navigation }) => {
     </View>
   );
 
+  // Header right component for clear cart button
+  const ClearCartButton = () => {
+    if (cartItems.length === 0) return null;
+    
+    return (
+      <TouchableOpacity 
+        onPress={() => Alert.alert(
+          'Clear Cart',
+          'Are you sure you want to clear your cart?',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Clear', style: 'destructive', onPress: clearCart }
+          ]
+        )}
+      >
+        <Text style={styles.clearButtonText}>Clear</Text>
+      </TouchableOpacity>
+    );
+  };
+
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Your Cart</Text>
-        {cartItems.length > 0 && (
-          <TouchableOpacity 
-            style={styles.clearButton}
-            onPress={() => Alert.alert(
-              'Clear Cart',
-              'Are you sure you want to clear your cart?',
-              [
-                { text: 'Cancel', style: 'cancel' },
-                { text: 'Clear', style: 'destructive', onPress: clearCart }
-              ]
-            )}
-          >
-            <Text style={styles.clearButtonText}>Clear All</Text>
-          </TouchableOpacity>
-        )}
-      </View>
+      <Header 
+        title="Your Cart" 
+        showBackButton={true}
+        rightComponent={<ClearCartButton />}
+      />
       
       {loading ? (
         <View style={styles.loaderContainer}>
@@ -231,26 +240,10 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.background,
   },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: SIZES.medium,
-    backgroundColor: COLORS.background,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-  },
-  headerTitle: {
-    ...FONTS.bold,
-    fontSize: SIZES.large,
-    color: COLORS.primary,
-  },
-  clearButton: {
-    padding: SIZES.small,
-  },
   clearButtonText: {
     ...FONTS.medium,
     color: COLORS.error,
+    fontSize: SIZES.small,
   },
   loaderContainer: {
     flex: 1,

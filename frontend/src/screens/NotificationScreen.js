@@ -11,6 +11,8 @@ import {
 } from 'react-native';
 import { COLORS, FONTS, SIZES } from '../constants/theme';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Header from '../components/Header';
+import { Ionicons } from '@expo/vector-icons';
 
 const NotificationScreen = ({ navigation }) => {
   const [notifications, setNotifications] = useState([]);
@@ -126,6 +128,26 @@ const NotificationScreen = ({ navigation }) => {
     }
   };
 
+  // Custom right component with clear button for header
+  const ClearButton = () => {
+    if (notifications.length === 0) return null;
+    
+    return (
+      <TouchableOpacity 
+        onPress={() => Alert.alert(
+          'Clear Notifications',
+          'Are you sure you want to clear all notifications?',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Clear', style: 'destructive', onPress: clearAllNotifications }
+          ]
+        )}
+      >
+        <Ionicons name="trash-outline" size={22} color={COLORS.error} />
+      </TouchableOpacity>
+    );
+  };
+
   const renderNotificationItem = ({ item }) => (
     <TouchableOpacity 
       style={[styles.notificationItem, item.read ? styles.readNotification : styles.unreadNotification]}
@@ -142,24 +164,10 @@ const NotificationScreen = ({ navigation }) => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Notifications</Text>
-        {notifications.length > 0 && (
-          <TouchableOpacity
-            style={styles.clearButton}
-            onPress={() => Alert.alert(
-              'Clear Notifications',
-              'Are you sure you want to clear all notifications?',
-              [
-                { text: 'Cancel', style: 'cancel' },
-                { text: 'Clear', style: 'destructive', onPress: clearAllNotifications }
-              ]
-            )}
-          >
-            <Text style={styles.clearButtonText}>Clear All</Text>
-          </TouchableOpacity>
-        )}
-      </View>
+      <Header 
+        title="Notifications" 
+        rightComponent={<ClearButton />}
+      />
       
       {loading ? (
         <View style={styles.loaderContainer}>
@@ -186,43 +194,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.background,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: SIZES.medium,
-    backgroundColor: COLORS.background,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-  },
-  headerTitle: {
-    ...FONTS.bold,
-    fontSize: SIZES.large,
-    color: COLORS.primary,
-  },
-  clearButton: {
-    padding: SIZES.small,
-  },
-  clearButtonText: {
-    ...FONTS.medium,
-    color: COLORS.error,
-  },
-  loaderContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: SIZES.large,
-  },
-  emptyText: {
-    ...FONTS.medium,
-    fontSize: SIZES.large,
-    color: COLORS.onBackground,
   },
   listContainer: {
     padding: SIZES.small,
@@ -267,6 +238,22 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     backgroundColor: COLORS.primary,
     marginLeft: 10,
+  },
+  loaderContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: SIZES.large,
+  },
+  emptyText: {
+    ...FONTS.medium,
+    fontSize: SIZES.large,
+    color: COLORS.onBackground,
   },
 });
 

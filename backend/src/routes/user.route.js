@@ -9,6 +9,8 @@ const {
     updateUser,
     deleteUser,
     adminCreateUser,
+    getFirebaseToken,
+    testEndpoint
 } = require('../controllers/user.controller');
 const verifyAdminToken = require('../middleware/verifyAdminToken');
 const router = express.Router();
@@ -17,6 +19,8 @@ const router = express.Router();
 router.post("/register", registerUser);
 router.post("/login", loginUser);
 router.post("/google-auth", googleAuth);
+router.post("/firebase-token", getFirebaseToken);
+router.get("/test", testEndpoint);
 router.post("/admin", loginAdmin);
 
 // Admin-protected routes

@@ -287,4 +287,67 @@ exports.deleteUser = async (req, res) => {
     }
 };
 
+// Firebase token endpoint
+exports.getFirebaseToken = async (req, res, next) => {
+    const { email, firebaseUid } = req.body;
+    
+    try {
+        if (!email || !firebaseUid) {
+            return res.status(400).json({ message: "Email and Firebase UID are required" });
+        }
+        
+        // Find user by email and Firebase UID
+        const user = await User.findOne({ 
+            $or: [
+                { email, firebaseUid },
+                { email }
+            ]
+        });
+        
+        if (!user) {
+            return res.status(404).json({ message: "User not found. Please register first." });
+        }
+        
+        // Update firebaseUid if it doesn't match (user might have been created before Firebase auth)
+        if (user.firebaseUid !== firebaseUid) {
+            user.firebaseUid = firebaseUid;
+            await user.save();
+        }
+        
+        // Generate JWT token
+        const token = jwt.sign(
+            { id: user._id, email: user.email, role: user.role, firebaseUid: user.firebaseUid },
+            JWT_SECRET,
+            { expiresIn: '24h' }
+        );
+        
+        res.status(200).json({ 
+            message: "Firebase authentication successful",
+            token,
+            user: {
+                id: user._id,
+                username: user.username,
+                email: user.email,
+                role: user.role
+            }
+        });
+    } catch (error) {
+        console.error("Error in getFirebaseToken:", error);
+        next(error);
+    }
+};
+
+// Simple test endpoint for debugging
+exports.testEndpoint = async (req, res) => {
+    try {
+        res.status(200).json({ 
+            message: "Test endpoint reached successfully",
+            timestamp: new Date().toISOString()
+        });
+    } catch (error) {
+        console.error("Error in test endpoint:", error);
+        res.status(500).json({ message: "Test endpoint error" });
+    }
+};
+
 

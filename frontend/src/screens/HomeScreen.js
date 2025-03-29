@@ -2,10 +2,12 @@ import React from 'react';
 import { View, Text, StyleSheet, SafeAreaView, ScrollView } from 'react-native';
 import { COLORS, FONTS, SIZES } from '../constants/theme';
 import Button from '../components/Button';
+import Header from '../components/Header';
 
 const HomeScreen = ({ navigation }) => {
   return (
     <SafeAreaView style={styles.container}>
+      <Header showLogo={true} />
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.header}>
           <Text style={styles.title}>Welcome to FullyBooked</Text>
@@ -21,7 +23,7 @@ const HomeScreen = ({ navigation }) => {
           <View style={styles.buttonContainer}>
             <Button 
               title="Get Started" 
-              onPress={() => console.log('Get Started pressed')} 
+              onPress={() => navigation.navigate('Books')} 
               style={styles.button}
             />
             <Button 

@@ -2,6 +2,8 @@ import { jwtDecode } from "jwt-decode"
 import AsyncStorage from "@react-native-async-storage/async-storage"
 import Toast from "react-native-toast-message"
 import baseURL from "../../assets/common/baseurl"
+import { signOut as firebaseSignOut } from 'firebase/auth';
+import { auth } from '../../services/firebaseConfig';
 
 export const SET_CURRENT_USER = "SET_CURRENT_USER";
 
@@ -109,6 +111,16 @@ export const getUserProfile = (id) => {
 }
 
 export const logoutUser = (dispatch) => {
+    // Sign out from Firebase first
+    try {
+        firebaseSignOut(auth)
+            .then(() => console.log("Firebase signout successful"))
+            .catch(err => console.error("Firebase signout error:", err));
+    } catch (fbErr) {
+        console.error("Error during Firebase signout:", fbErr);
+    }
+    
+    // Clear the JWT token
     AsyncStorage.removeItem("jwt")
         .then(() => {
             console.log("Token removed from AsyncStorage");

@@ -11,6 +11,8 @@ import {
 } from 'react-native';
 import { COLORS, FONTS, SIZES } from '../constants/theme';
 import api from '../services/api';
+import Header from '../components/Header';
+import { Ionicons } from '@expo/vector-icons';
 
 const BooksScreen = ({ navigation }) => {
   const [books, setBooks] = useState([]);
@@ -34,6 +36,13 @@ const BooksScreen = ({ navigation }) => {
       setLoading(false);
     }
   };
+
+  // Search button for the header
+  const SearchButton = () => (
+    <TouchableOpacity onPress={() => navigation.navigate('ProductsPage')}>
+      <Ionicons name="search" size={24} color={COLORS.onBackground} />
+    </TouchableOpacity>
+  );
 
   const renderBookItem = ({ item }) => (
     <TouchableOpacity 
@@ -75,9 +84,10 @@ const BooksScreen = ({ navigation }) => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Books</Text>
-      </View>
+      <Header 
+        title="Books" 
+        rightComponent={<SearchButton />} 
+      />
       
       {loading ? (
         <View style={styles.loaderContainer}>
@@ -113,17 +123,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.background,
-  },
-  header: {
-    padding: SIZES.medium,
-    backgroundColor: COLORS.background,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-  },
-  headerTitle: {
-    ...FONTS.bold,
-    fontSize: SIZES.large,
-    color: COLORS.primary,
   },
   listContainer: {
     padding: SIZES.small,
@@ -216,7 +215,7 @@ const styles = StyleSheet.create({
     padding: SIZES.large,
   },
   errorText: {
-    ...FONTS.regular,
+    ...FONTS.medium,
     fontSize: SIZES.medium,
     color: COLORS.error,
     textAlign: 'center',

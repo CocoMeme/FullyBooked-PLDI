@@ -10,6 +10,7 @@ import {
   Alert,
   ScrollView
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useGoogleAuth } from '../services/googleAuthService';
 import AuthGlobal from '../context/store/AuthGlobal';
 import { loginUser, setCurrentUser } from '../context/actions/auth.action';
@@ -28,6 +29,8 @@ const RegisterScreen = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [networkStatus, setNetworkStatus] = useState(null);
+  const [hidePassword, setHidePassword] = useState(true);
+  const [hideConfirmPassword, setHideConfirmPassword] = useState(true);
   const navigation = useNavigation();
   
   // Use our custom Google auth hook - now with registerWithEmailAndPassword
@@ -194,23 +197,47 @@ const RegisterScreen = () => {
           autoCapitalize="none"
         />
         
-        <TextInput
-          style={styles.input}
-          placeholder="Password"
-          placeholderTextColor="#666"
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-        />
+        <View style={styles.passwordContainer}>
+          <TextInput
+            style={styles.passwordInput}
+            placeholder="Password"
+            placeholderTextColor="#666"
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry={hidePassword}
+          />
+          <TouchableOpacity 
+            style={styles.eyeIcon} 
+            onPress={() => setHidePassword(!hidePassword)}
+          >
+            <Ionicons 
+              name={hidePassword ? 'eye-off-outline' : 'eye-outline'} 
+              size={24} 
+              color="#666" 
+            />
+          </TouchableOpacity>
+        </View>
         
-        <TextInput
-          style={styles.input}
-          placeholder="Confirm Password"
-          placeholderTextColor="#666"
-          value={confirmPassword}
-          onChangeText={setConfirmPassword}
-          secureTextEntry
-        />
+        <View style={styles.passwordContainer}>
+          <TextInput
+            style={styles.passwordInput}
+            placeholder="Confirm Password"
+            placeholderTextColor="#666"
+            value={confirmPassword}
+            onChangeText={setConfirmPassword}
+            secureTextEntry={hideConfirmPassword}
+          />
+          <TouchableOpacity 
+            style={styles.eyeIcon} 
+            onPress={() => setHideConfirmPassword(!hideConfirmPassword)}
+          >
+            <Ionicons 
+              name={hideConfirmPassword ? 'eye-off-outline' : 'eye-outline'} 
+              size={24} 
+              color="#666" 
+            />
+          </TouchableOpacity>
+        </View>
 
         <TouchableOpacity 
           style={styles.registerButton} 
@@ -354,6 +381,21 @@ const styles = StyleSheet.create({
     color: COLORS.primary,
     fontSize: 14,
     fontWeight: 'bold',
+  },
+  passwordContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#f5f5f5',
+    borderRadius: 8,
+    marginBottom: 15,
+    alignItems: 'center',
+  },
+  passwordInput: {
+    flex: 1,
+    padding: 15,
+    fontSize: 16,
+  },
+  eyeIcon: {
+    padding: 10,
   },
 });
 

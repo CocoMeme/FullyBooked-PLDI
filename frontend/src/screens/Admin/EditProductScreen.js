@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, Button, StyleSheet, Alert } from 'react-native';
+import { View, Text, TextInput, Button, StyleSheet, Alert, ActivityIndicator, TouchableOpacity } from 'react-native';
 import axios from 'axios';
-import API_URL from '../services/api'; // Import your API_URL configuration
+import API_URL from '../../services/api';
+import Header from '../../components/Header';
+import { COLORS, FONTS, SIZES } from '../../constants/theme';
 
 const EditProductScreen = ({ route, navigation }) => {
   const { productId } = route.params; // Get the product ID from navigation params
@@ -40,6 +42,8 @@ const EditProductScreen = ({ route, navigation }) => {
   if (loading) {
     return (
       <View style={styles.center}>
+        <Header title="Edit Product" showBackButton={true} />
+        <ActivityIndicator size="large" color={COLORS.primary} />
         <Text>Loading product details...</Text>
       </View>
     );
@@ -47,53 +51,61 @@ const EditProductScreen = ({ route, navigation }) => {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.label}>Title</Text>
-      <TextInput
-        style={styles.input}
-        value={product.title}
-        onChangeText={(text) => setProduct({ ...product, title: text })}
-      />
+      <Header title="Edit Product" showBackButton={true} />
+      
+      <View style={styles.formContainer}>
+        <Text style={styles.label}>Title</Text>
+        <TextInput
+          style={styles.input}
+          value={product.title}
+          onChangeText={(text) => setProduct({ ...product, title: text })}
+        />
 
-      <Text style={styles.label}>Category</Text>
-      <TextInput
-        style={styles.input}
-        value={product.category}
-        onChangeText={(text) => setProduct({ ...product, category: text })}
-      />
+        <Text style={styles.label}>Category</Text>
+        <TextInput
+          style={styles.input}
+          value={product.category}
+          onChangeText={(text) => setProduct({ ...product, category: text })}
+        />
 
-      <Text style={styles.label}>Description</Text>
-      <TextInput
-        style={styles.input}
-        value={product.description}
-        onChangeText={(text) => setProduct({ ...product, description: text })}
-      />
+        <Text style={styles.label}>Description</Text>
+        <TextInput
+          style={styles.input}
+          value={product.description}
+          onChangeText={(text) => setProduct({ ...product, description: text })}
+          multiline={true}
+          numberOfLines={4}
+        />
 
-      <Text style={styles.label}>Price</Text>
-      <TextInput
-        style={styles.input}
-        value={product.price.toString()}
-        keyboardType="numeric"
-        onChangeText={(text) => setProduct({ ...product, price: parseFloat(text) })}
-      />
+        <Text style={styles.label}>Price</Text>
+        <TextInput
+          style={styles.input}
+          value={product.price.toString()}
+          keyboardType="numeric"
+          onChangeText={(text) => setProduct({ ...product, price: parseFloat(text) })}
+        />
 
-      <Text style={styles.label}>Discount Price</Text>
-      <TextInput
-        style={styles.input}
-        value={product.discountPrice ? product.discountPrice.toString() : ''}
-        keyboardType="numeric"
-        onChangeText={(text) =>
-          setProduct({ ...product, discountPrice: text ? parseFloat(text) : null })
-        }
-      />
+        <Text style={styles.label}>Discount Price</Text>
+        <TextInput
+          style={styles.input}
+          value={product.discountPrice ? product.discountPrice.toString() : ''}
+          keyboardType="numeric"
+          onChangeText={(text) =>
+            setProduct({ ...product, discountPrice: text ? parseFloat(text) : null })
+          }
+        />
 
-      <Text style={styles.label}>Image URL</Text>
-      <TextInput
-        style={styles.input}
-        value={product.image}
-        onChangeText={(text) => setProduct({ ...product, image: text })}
-      />
+        <Text style={styles.label}>Image URL</Text>
+        <TextInput
+          style={styles.input}
+          value={product.image}
+          onChangeText={(text) => setProduct({ ...product, image: text })}
+        />
 
-      <Button title="Update Product" onPress={handleUpdate} />
+        <TouchableOpacity style={styles.updateButton} onPress={handleUpdate}>
+          <Text style={styles.updateButtonText}>Update Product</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 };
@@ -101,26 +113,44 @@ const EditProductScreen = ({ route, navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#f5f5f5',
+  },
+  formContainer: {
     padding: 16,
-    backgroundColor: '#f9f9f9',
   },
   label: {
-    fontSize: 16,
-    fontWeight: 'bold',
+    ...FONTS.medium,
+    fontSize: SIZES.medium,
     marginBottom: 8,
+    color: COLORS.onBackground,
   },
   input: {
     borderWidth: 1,
-    borderColor: '#ccc',
+    borderColor: '#e0e0e0',
     borderRadius: 8,
-    padding: 8,
+    padding: 12,
     marginBottom: 16,
     backgroundColor: '#fff',
+    ...FONTS.regular,
+    fontSize: SIZES.medium,
   },
   center: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: '#f5f5f5',
+  },
+  updateButton: {
+    backgroundColor: COLORS.primary,
+    borderRadius: 8,
+    padding: 16,
+    alignItems: 'center',
+    marginTop: 16,
+  },
+  updateButtonText: {
+    ...FONTS.bold,
+    color: '#fff',
+    fontSize: SIZES.medium,
   },
 });
 
