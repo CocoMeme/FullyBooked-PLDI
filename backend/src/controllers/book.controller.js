@@ -1,4 +1,4 @@
-const Book = require('./book.model');
+const Book = require('../models/book.model');
 const uploadToCloudinary = require('../../utils/cloudinaryUploader');
 const mongoose = require("mongoose"); // Ensure mongoose is imported for ObjectId validation
 

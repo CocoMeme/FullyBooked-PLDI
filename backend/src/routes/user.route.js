@@ -1,18 +1,22 @@
 const express = require('express');
 const {
     registerUser,
+    loginUser,
+    googleAuth,
     loginAdmin,
     getAllUsers,
     getSingleUser,
     updateUser,
     deleteUser,
     adminCreateUser,
-} = require('./user.controller');
+} = require('../controllers/user.controller');
 const verifyAdminToken = require('../middleware/verifyAdminToken');
 const router = express.Router();
 
 // Public routes
 router.post("/register", registerUser);
+router.post("/login", loginUser);
+router.post("/google-auth", googleAuth);
 router.post("/admin", loginAdmin);
 
 // Admin-protected routes

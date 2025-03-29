@@ -1,8 +1,92 @@
 const jwt = require('jsonwebtoken');
 const bcrypt = require("bcrypt");
-const User = require('../users/user.model'); 
+const User = require('../models/user.model'); 
 
-const JWT_SECRET = process.env.JWT_SECRET_KEY;
+const JWT_SECRET = process.env.JWT_SECRET_KEY || 'fullybooked-super-secret-jwt-token-key-2025';
+
+// User login endpoint
+exports.loginUser = async (req, res, next) => {
+    const { email, password } = req.body;
+    
+    try {
+        if (!email || !password) {
+            return res.status(400).json({ message: "Email and password are required" });
+        }
+        
+        // Find user by email
+        const user = await User.findOne({ email });
+        if (!user) {
+            return res.status(404).json({ message: "User not found" });
+        }
+        
+        // Validate password
+        const isPasswordValid = await user.comparePassword(password);
+        if (!isPasswordValid) {
+            return res.status(401).json({ message: "Invalid password" });
+        }
+        
+        // Generate JWT token
+        const token = jwt.sign(
+            { id: user._id, email: user.email, role: user.role },
+            JWT_SECRET,
+            { expiresIn: '24h' }
+        );
+        
+        res.status(200).json({ 
+            message: "Login successful",
+            token,
+            user: {
+                id: user._id,
+                username: user.username,
+                email: user.email,
+                role: user.role
+            }
+        });
+    } catch (error) {
+        console.error("Error in loginUser:", error);
+        next(error);
+    }
+};
+
+// Google authentication endpoint
+exports.googleAuth = async (req, res, next) => {
+    const { email, firebaseUid } = req.body;
+    
+    try {
+        // Find user by email or firebaseUid
+        let user = await User.findOne({ 
+            $or: [{ email }, { firebaseUid }] 
+        });
+        
+        // If user doesn't exist, create new user
+        if (!user) {
+            return res.status(404).json({ 
+                message: "User not found. Please register first." 
+            });
+        }
+        
+        // Generate JWT token
+        const token = jwt.sign(
+            { id: user._id, email: user.email, role: user.role, firebaseUid: user.firebaseUid },
+            JWT_SECRET,
+            { expiresIn: '24h' }
+        );
+        
+        res.status(200).json({ 
+            message: "Google authentication successful",
+            token,
+            user: {
+                id: user._id,
+                username: user.username,
+                email: user.email,
+                role: user.role
+            }
+        });
+    } catch (error) {
+        console.error("Error in googleAuth:", error);
+        next(error);
+    }
+};
 
 exports.registerUser = async (req, res, next) => {
     const { username, email, password, firebaseUid } = req.body;
@@ -12,17 +96,31 @@ exports.registerUser = async (req, res, next) => {
             return res.status(400).json({ message: "All fields are required" });
         }
 
-        const hashedPassword = await bcrypt.hash(password, 10); // Hash password
-        const newUser = new User({ username, email, password: hashedPassword, firebaseUid });
+        // Check if user with the same email or username already exists
+        const existingUser = await User.findOne({ $or: [{ email }, { username }] });
+        if (existingUser) {
+            return res.status(409).json({ message: "User with this email or username already exists" });
+        }
+
+        const newUser = new User({ username, email, password, firebaseUid });
         await newUser.save();
 
         const token = jwt.sign(
             { id: newUser._id, email: newUser.email, role: newUser.role, firebaseUid: newUser.firebaseUid },
             JWT_SECRET,
-            { expiresIn: '1h' }
+            { expiresIn: '24h' }
         );
 
-        res.status(201).json({ message: "User created successfully!", token });
+        res.status(201).json({ 
+            message: "User created successfully!", 
+            token,
+            user: {
+                id: newUser._id,
+                username: newUser.username,
+                email: newUser.email,
+                role: newUser.role
+            }
+        });
     } catch (error) {
         console.error("Error in registerUser:", error);
         next(error);
@@ -50,7 +148,7 @@ exports.loginAdmin = async (req, res) => {
         const token = jwt.sign(
             { id: admin._id, username: admin.username, role: admin.role },
             JWT_SECRET,
-            { expiresIn: "1h" }
+            { expiresIn: "24h" }
         );
 
         return res.status(200).json({
@@ -98,9 +196,9 @@ exports.adminCreateUser = async (req, res, next) => {
         }
 
         // Check if the role is valid
-        const validRoles = ["admin", "user"];
+        const validRoles = ["admin", "customer", "courier"];
         if (role && !validRoles.includes(role)) {
-            return res.status(400).json({ message: "Invalid role provided. Valid roles are: admin, user." });
+            return res.status(400).json({ message: `Invalid role provided. Valid roles are: ${validRoles.join(', ')}` });
         }
 
         // Check if a user with the same email or username already exists
@@ -109,16 +207,13 @@ exports.adminCreateUser = async (req, res, next) => {
             return res.status(409).json({ message: "A user with this email or username already exists." });
         }
 
-        // Hash the password
-        const hashedPassword = await bcrypt.hash(password, 10);
-
         // Create a new user
         const newUser = new User({
             username,
             email,
-            password: hashedPassword,
+            password,
             firebaseUid,
-            role: role || "customer", // Default to "user" if no role is provided
+            role: role || "customer", // Default to "customer" if no role is provided
         });
         await newUser.save();
 
@@ -126,7 +221,7 @@ exports.adminCreateUser = async (req, res, next) => {
         const token = jwt.sign(
             { id: newUser._id, email: newUser.email, role: newUser.role, firebaseUid: newUser.firebaseUid },
             JWT_SECRET,
-            { expiresIn: "1h" }
+            { expiresIn: "24h" }
         );
 
         res.status(201).json({
@@ -192,89 +287,4 @@ exports.deleteUser = async (req, res) => {
     }
 };
 
-// COURIER FUNCTIONALITIES
 
-exports.submitCourierApplication = async (req, res) => {
-    try {
-        const { userId } = req.params;  // Assuming the user ID is sent as a URL parameter
-        const { vehicleInfo, serviceArea, validId } = req.body;
-
-        // Find the user by ID
-        const user = await User.findById(userId);
-
-        if (!user) {
-            return res.status(404).json({ message: 'User not found' });
-        }
-
-        if (user.role !== 'customer') {
-            return res.status(400).json({ message: 'Only customers can apply to be a courier' });
-        }
-        
-        if (user.courierApplicationStatus === 'pending') {
-            return res.status(400).json({ message: 'Application already submitted and is under review' });
-        }
-
-        // Update user fields for courier application
-        user.courierApplicationStatus = 'pending';
-        user.applicationDate = new Date();
-        user.vehicleInfo = vehicleInfo;
-        user.serviceArea = serviceArea;
-        user.validId = validId;
-
-        // Save the updated user data
-        await user.save();
-
-        res.status(200).json({ message: 'Courier application submitted successfully' });
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: 'An error occurred while submitting the application' });
-    }
-};
-
-exports.processCourierApplication = async (req, res) => {
-    try {
-        const { userId } = req.params;
-        const { status } = req.body;  // 'approved' or 'rejected'
-
-        // Find the user by ID
-        const user = await User.findById(userId);
-
-        if (!user) {
-            return res.status(404).json({ message: 'User not found' });
-        }
-
-        if (user.courierApplicationStatus !== 'pending') {
-            return res.status(400).json({ message: 'No pending application found for this user' });
-        }
-
-        // Approve the application
-        if (status === 'approved') {
-            user.courierApplicationStatus = 'approved';
-            user.approvalDate = new Date();
-            user.role = 'courier';  // Update the role to courier
-            user.isAvailable = true;  // Set initial availability status
-        } 
-        // Reject the application
-        else if (status === 'rejected') {
-            user.courierApplicationStatus = 'rejected';
-            user.applicationDate = null;
-            user.approvalDate = null;
-            user.vehicleInfo = null;
-            user.serviceArea = { country: null, city: null };
-            user.validId = null;
-        } else {
-            return res.status(400).json({ message: 'Invalid status. Must be either "approved" or "rejected".' });
-        }
-
-        // Save the updated user data
-        await user.save();
-
-        res.status(200).json({ message: `Courier application ${status} successfully` });
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: 'An error occurred while processing the application' });
-    }
-};
-
-
-  

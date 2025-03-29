@@ -5,7 +5,7 @@ const {
     fetchAllOrders,
     updateOrderStatus,
     deleteOrder, // Import delete function
-} = require('./order.controller');
+} = require('../controllers/order.controller');
 
 const router = express.Router();
 

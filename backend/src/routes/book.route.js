@@ -5,7 +5,7 @@ const {
   getSingleBook, 
   updateBook, 
   deleteBook 
-} = require('./book.controller');
+} = require('../controllers/book.controller');
 const verifyAdminToken = require('../middleware/verifyAdminToken');
 const { upload } = require('../../utils/multer.config');
 const uploadToCloudinary = require('../../utils/cloudinaryUploader'); // Ensure this is imported

@@ -1,8 +1,8 @@
 const mongoose = require('mongoose');
-const User = require('../users/user.model');
-const Book = require('../books/book.model'); 
-const Review = require('./review.model');
-const Order = require('../orders/order.model'); 
+const User = require('../models/user.model');
+const Book = require('../models/book.model');
+const Review = require('../models/review.model');
+const Order = require('../models/order.model');
 
 // backend/src/reviews/review.controller.js
 
