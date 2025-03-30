@@ -29,7 +29,6 @@ const UserManagement = ({ navigation }) => {
       // This would be replaced with an actual API call in production
       // const response = await axios.get(API_URL.GET_ALL_USERS);
       
-      // Dummy data for demonstration
       const dummyUsers = [
         {
           _id: '1',

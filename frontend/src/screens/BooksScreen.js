@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { 
   View, 
   Text, 
@@ -9,33 +9,19 @@ import {
   ActivityIndicator,
   SafeAreaView
 } from 'react-native';
+import { useSelector, useDispatch } from 'react-redux';
+import { fetchBooks } from '../redux/actions/bookActions';
 import { COLORS, FONTS, SIZES } from '../constants/theme';
-import api from '../services/api';
 import Header from '../components/Header';
 import { Ionicons } from '@expo/vector-icons';
 
 const BooksScreen = ({ navigation }) => {
-  const [books, setBooks] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-
+  const dispatch = useDispatch();
+  const { books, loading, error } = useSelector(state => state.books);
+  
   useEffect(() => {
-    fetchBooks();
-  }, []);
-
-  const fetchBooks = async () => {
-    try {
-      setLoading(true);
-      const response = await api.get('/books');
-      setBooks(response.data);
-      setError(null);
-    } catch (err) {
-      console.error('Error fetching books:', err);
-      setError('Failed to load books. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
+    dispatch(fetchBooks());
+  }, [dispatch]);
 
   // Search button for the header
   const SearchButton = () => (
@@ -82,6 +68,10 @@ const BooksScreen = ({ navigation }) => {
     </TouchableOpacity>
   );
 
+  const handleRetry = () => {
+    dispatch(fetchBooks());
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <Header 
@@ -96,7 +86,7 @@ const BooksScreen = ({ navigation }) => {
       ) : error ? (
         <View style={styles.errorContainer}>
           <Text style={styles.errorText}>{error}</Text>
-          <TouchableOpacity style={styles.retryButton} onPress={fetchBooks}>
+          <TouchableOpacity style={styles.retryButton} onPress={handleRetry}>
             <Text style={styles.retryText}>Retry</Text>
           </TouchableOpacity>
         </View>

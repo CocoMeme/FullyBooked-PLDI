@@ -1,157 +1,295 @@
 const Book = require('../models/book.model');
 const uploadToCloudinary = require('../../utils/cloudinaryUploader');
-const mongoose = require("mongoose"); // Ensure mongoose is imported for ObjectId validation
+const mongoose = require("mongoose");
 
-
-const postBook = async (req, res) => {
+// Create a new book
+const createBook = async (req, res) => {
   try {
-    const { body } = req;
-
+    const { body, files } = req;
     console.log("Request Body:", body);
+    console.log("Files received:", files);
 
-    // Check if coverImage URLs are provided
-    if (!body.coverImage || !Array.isArray(body.coverImage) || body.coverImage.length === 0) {
-      return res.status(400).send({ message: "At least one image URL is required!" });
+    // Upload images to Cloudinary if files are provided
+    let imageUrls = [];
+    if (files && files.length > 0) {
+      console.log(`Starting upload of ${files.length} files to Cloudinary`);
+      
+      const uploadPromises = files.map(file => uploadToCloudinary(file, "Fully Booked"));
+      const uploadResults = await Promise.all(uploadPromises);
+      
+      console.log("Upload results:", uploadResults);
+      
+      // Extract URLs from successful uploads
+      imageUrls = uploadResults
+        .filter(result => result.success)
+        .map(result => result.url);
+      
+      console.log("Extracted image URLs:", imageUrls);
+      
+      if (imageUrls.length === 0) {
+        return res.status(400).send({ message: "Failed to upload images!" });
+      }
+    } else if (body.coverImage && Array.isArray(body.coverImage) && body.coverImage.length > 0) {
+      // If no files but URLs are provided in body
+      console.log("Using provided coverImage URLs from body");
+      imageUrls = body.coverImage;
+    } else {
+      console.error("No images were provided in the request");
+      return res.status(400).send({ message: "At least one image is required!" });
     }
 
     // Create new book with the provided data
-    const newBook = new Book({
+    const bookData = {
       ...body,
-      coverImage: body.coverImage, // Use URLs directly from the body
-    });
+      coverImage: imageUrls,
+    };
+    
+    console.log("Creating book with data:", bookData);
+    const newBook = new Book(bookData);
 
     // Save the book to the database
     await newBook.save();
+    console.log("Book saved successfully with ID:", newBook._id);
 
-    res.status(200).send({ message: "Book posted successfully!", book: newBook });
+    res.status(201).send({ 
+      success: true,
+      message: "Book created successfully!", 
+      book: newBook 
+    });
   } catch (error) {
-    console.error("Error: Creating Book", error);
-    res.status(500).send({ message: "Book post failed!", error: error.message });
+    console.error("Error creating book:", error);
+    
+    // Handle validation errors
+    if (error.name === 'ValidationError') {
+      return res.status(400).send({
+        success: false,
+        message: "Validation failed!",
+        errors: Object.values(error.errors).map(err => err.message)
+      });
+    }
+    
+    res.status(500).send({ 
+      success: false,
+      message: "Book creation failed!", 
+      error: error.message 
+    });
   }
 };
 
-
+// Update an existing book
 const updateBook = async (req, res) => {
   try {
-    console.log("Files received:", req.files); // Debug uploaded files
-    console.log("Body received:", req.body); // Debug body data
-
     const { id } = req.params;
+    const { body, files } = req;
+
+    console.log("Update Body:", body);
+    console.log("Update Files:", files);
 
     // Validate ObjectId
     if (!mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).send({ message: "Invalid book ID!" });
+      return res.status(400).send({ 
+        success: false,
+        message: "Invalid book ID!" 
+      });
     }
 
     // Fetch the existing book
     const existingBook = await Book.findById(id);
     if (!existingBook) {
-      return res.status(404).send({ message: "Book not found!" });
+      return res.status(404).send({ 
+        success: false,
+        message: "Book not found!" 
+      });
     }
 
-    const { body, files } = req;
-
-    // Replace cover images with new ones only if files are provided
-    let updatedImages = [];
+    // Handle images: upload new ones or keep existing ones
+    let updatedImages = existingBook.coverImage; // Default to existing images
 
     if (files && files.length > 0) {
-      // Upload new images and get their URLs
-      const uploadedImages = await Promise.all(
-        files.map(async (file) => {
-          try {
-            const result = await uploadToCloudinary(file, "Fully Booked");
-            return result;
-          } catch (error) {
-            console.error("Cloudinary Upload Error:", error);
-            return { success: false, error: error.message };
-          }
-        })
-      );
-
-      // Check for failed uploads
-      const failedUploads = uploadedImages.filter((img) => !img.success);
-      if (failedUploads.length > 0) {
-        throw new Error("Some images failed to upload.");
+      // Upload new images to Cloudinary
+      const uploadPromises = files.map(file => uploadToCloudinary(file, "Fully Booked"));
+      const uploadResults = await Promise.all(uploadPromises);
+      
+      // Extract URLs from successful uploads
+      const newImageUrls = uploadResults
+        .filter(result => result.success)
+        .map(result => result.url);
+      
+      if (newImageUrls.length > 0) {
+        updatedImages = newImageUrls; // Replace with new images
       }
-
-      updatedImages = uploadedImages.map((img) => img.url); // Replace old URLs with new ones
-    } else {
-      // If no files are uploaded, keep the existing image URLs from the database
-      updatedImages = existingBook.coverImage;
+    } else if (body.coverImage && Array.isArray(body.coverImage) && body.coverImage.length > 0) {
+      // If URLs are directly provided in the body
+      updatedImages = body.coverImage;
     }
 
-    // Update book data
-    const updatedData = {
+    // Prepare update data
+    const updateData = {
       ...body,
-      coverImage: updatedImages, // Ensure only the new images are used
+      coverImage: updatedImages,
     };
 
-    // Validate price and discount price
-    if (updatedData.tag === "Sale" && (!updatedData.discountPrice || updatedData.discountPrice <= 0)) {
-      return res.status(400).send({ message: "Discount price is required and must be positive for 'Sale' tag!" });
+    // Validate price and discount price if tag is 'Sale'
+    if (updateData.tag === 'Sale' && (!updateData.discountPrice || updateData.discountPrice <= 0)) {
+      return res.status(400).send({ 
+        success: false,
+        message: "Discount price is required and must be positive when tag is 'Sale'!" 
+      });
     }
 
     // Update the book in the database
-    const updatedBook = await Book.findByIdAndUpdate(id, updatedData, { new: true });
+    const updatedBook = await Book.findByIdAndUpdate(
+      id, 
+      updateData, 
+      { new: true, runValidators: true }
+    );
 
     res.status(200).send({
+      success: true,
       message: "Book updated successfully!",
       book: updatedBook,
     });
   } catch (error) {
     console.error("Error: Updating Book", error);
-    res.status(500).send({ message: "Failed to update the book!", error: error.message });
+    res.status(500).send({ 
+      success: false,
+      message: "Failed to update the book!", 
+      error: error.message 
+    });
   }
 };
 
-
+// Get all books
 const getAllBooks = async (req, res) => {
   try {
-    const books = await Book.find().sort({ createdAt: -1 });
-    res.status(200).send(books);
+    const { category, tag, priceMin, priceMax, search } = req.query;
+    
+    // Build query filters
+    let filter = {};
+    
+    // Apply category filter if provided
+    if (category) {
+      filter.category = category;
+    }
+    
+    // Apply tag filter if provided
+    if (tag) {
+      filter.tag = tag;
+    }
+    
+    // Apply price range filter if provided
+    if (priceMin !== undefined || priceMax !== undefined) {
+      filter.price = {};
+      if (priceMin !== undefined) filter.price.$gte = Number(priceMin);
+      if (priceMax !== undefined) filter.price.$lte = Number(priceMax);
+    }
+    
+    // Apply search filter if provided
+    if (search) {
+      filter.$or = [
+        { title: { $regex: search, $options: 'i' } },
+        { description: { $regex: search, $options: 'i' } }
+      ];
+    }
+    
+    // Execute query with filters and sort by most recent
+    const books = await Book.find(filter).sort({ createdAt: -1 });
+    
+    res.status(200).send({
+      success: true,
+      count: books.length,
+      books: books
+    });
   } catch (error) {
     console.error("Error: Fetching Books", error);
-    res.status(500).send({ message: "Fetch books failed!", error: error.message });
+    res.status(500).send({ 
+      success: false,
+      message: "Failed to fetch books!", 
+      error: error.message 
+    });
   }
 };
 
-const getSingleBook = async (req, res) => {
+// Get a single book by ID
+const getBookById = async (req, res) => {
   try {
     const { id } = req.params;
-    const book = await Book.findById(id);
-    if (!book) {
-      return res.status(404).send({ message: "Book not found!" });
+    
+    // Validate ObjectId
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).send({ 
+        success: false,
+        message: "Invalid book ID!" 
+      });
     }
-    res.status(200).send(book);
+    
+    // Find book and populate reviews if needed
+    const book = await Book.findById(id).populate('reviews');
+    
+    if (!book) {
+      return res.status(404).send({ 
+        success: false,
+        message: "Book not found!" 
+      });
+    }
+    
+    res.status(200).send({
+      success: true,
+      book: book
+    });
   } catch (error) {
     console.error("Error: Fetching Book", error);
-    res.status(500).send({ message: "Fetch book failed!", error: error.message });
+    res.status(500).send({ 
+      success: false,
+      message: "Failed to fetch book!", 
+      error: error.message 
+    });
   }
 };
 
+// Delete a book
 const deleteBook = async (req, res) => {
   try {
     const { id } = req.params;
-
-    const deletedBook = await Book.findByIdAndDelete(id);
-    if (!deletedBook) {
-      return res.status(404).send({ message: "Book not found!" });
+    
+    // Validate ObjectId
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).send({ 
+        success: false,
+        message: "Invalid book ID!" 
+      });
     }
 
+    const deletedBook = await Book.findByIdAndDelete(id);
+    
+    if (!deletedBook) {
+      return res.status(404).send({ 
+        success: false,
+        message: "Book not found!" 
+      });
+    }
+
+    // Note: In a production app, you might want to delete associated images from Cloudinary here
+
     res.status(200).send({
+      success: true,
       message: "Book deleted successfully!",
       book: deletedBook,
     });
   } catch (error) {
     console.error("Error: Deleting Book", error);
-    res.status(500).send({ message: "Delete book failed!", error: error.message });
+    res.status(500).send({ 
+      success: false,
+      message: "Failed to delete book!", 
+      error: error.message 
+    });
   }
 };
 
 module.exports = {
-  postBook,
-  getAllBooks,
-  getSingleBook,
+  createBook,
   updateBook,
+  getAllBooks,
+  getBookById,
   deleteBook,
 };

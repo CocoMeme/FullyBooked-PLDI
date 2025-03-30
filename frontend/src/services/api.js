@@ -7,28 +7,31 @@ import Constants from 'expo-constants';
 let BASE_URL = '';
 
 // Check if we're running in Expo Go with a tunnel
-const isExpoTunnel = Constants.manifest && Constants.manifest.debuggerHost && Constants.manifest.debuggerHost.includes('tunnel');
+// const isExpoTunnel = Constants.manifest && Constants.manifest.debuggerHost && Constants.manifest.debuggerHost.includes('tunnel');
 
-if (isExpoTunnel) {
-  // When using Expo tunnel, we don't need to use specific IP addresses
-  // The API requests will be proxied through the tunnel
-  BASE_URL = 'https://your-backend-url.com/api'; // Replace with your deployed backend URL if available
+// if (isExpoTunnel) {
+//   // When using Expo tunnel, we don't need to use specific IP addresses
+//   // The API requests will be proxied through the tunnel
+//   BASE_URL = 'https://your-backend-url.com/api'; // Replace with your deployed backend URL if available
   
-  // For development with tunnel, we still need to target localhost/backend server
-  // The tunnel will handle the routing
-  BASE_URL = 'http://localhost:3000/api'; // This will work through the tunnel
-} else if (Platform.OS === 'android') {
-  // For Android emulator, 10.0.2.2 points to host machine's localhost
-  BASE_URL = 'http://10.0.2.2:3000/api';
+//   // For development with tunnel, we still need to target localhost/backend server
+//   // The tunnel will handle the routing
+//   BASE_URL = 'http://localhost:3000/api'; // This will work through the tunnel
+// } else if (Platform.OS === 'android') {
+//   // For Android emulator, 10.0.2.2 points to host machine's localhost
+//   BASE_URL = 'http://10.0.2.2:3000/api';
   
-  // For physical Android devices, use your computer's LAN IP address
-  BASE_URL = 'http://192.168.1.66:3000/api'; // Using the IP address from your logs
-} else {
-  // For iOS simulator
-  BASE_URL = 'http://localhost:3000/api';
-}
+//   // For physical Android devices, use your computer's LAN IP address
+//   BASE_URL = 'http://192.168.1.66:3000/api'; // Using the IP address from your logs
+// } else {
+//   // For iOS simulator
+//   BASE_URL = 'http://localhost:3000/api';
+// }
 
-console.log('API Base URL:', BASE_URL);
+// For now, use a temporary base URL
+BASE_URL = 'http://localhost:3000/api';
+
+// console.log('API Base URL:', BASE_URL);
 
 // Create an Axios instance with a base URL
 const api = axios.create({
@@ -88,6 +91,20 @@ api.interceptors.response.use(
   }
 );
 
+// Book API endpoints
+const API_URL = {
+  // Book endpoints
+  GET_ALL_BOOKS: '/books',
+  GET_BOOK_BY_ID: (id) => `/books/${id}`,
+  CREATE_BOOK: '/books/create-book',
+  UPDATE_BOOK: (id) => `/books/edit/${id}`,
+  DELETE_BOOK: (id) => `/books/${id}`,
+  UPLOAD_COVER: '/books/upload-cover',
+  
+  // Search endpoints
+  SEARCH_BOOKS: (query) => `/books/search?${query}`,
+};
+
 // Authentication related API calls
 export const authAPI = {
   // Fixed path construction for URLs
@@ -107,4 +124,16 @@ export const checkConnection = async () => {
   }
 };
 
+// Data fetching helper function for use with search functionality
+export const fetchData = async (url, options = {}) => {
+  try {
+    const response = await api.get(url, options);
+    return response.data;
+  } catch (error) {
+    console.error(`Error fetching data from ${url}:`, error);
+    throw error;
+  }
+};
+
 export default api;
+export { API_URL };

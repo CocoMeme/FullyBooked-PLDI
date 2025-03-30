@@ -140,7 +140,7 @@ const AdminHomeScreen = ({ navigation }) => {
   const renderBookItem = ({ item }) => (
     <TouchableOpacity 
       style={styles.bookItem}
-      onPress={() => navigation.navigate('EditProduct', { productId: item._id })}
+      onPress={() => navigation.navigate('ProductManagement', { productId: item._id })}
     >
       <Image 
         source={{ uri: item.image }}
