@@ -29,6 +29,16 @@ const bookSchema = new mongoose.Schema({
     default: 'None',
     required: true,
   },
+  stock: {
+    type: Number,
+    default: 0,
+    validate: {
+      validator: function(value) {
+        return value >= 0;
+      },
+      message: 'Stock cannot be negative!'
+    }
+  },
   discountPrice: {
     type: Number,
     validate: {

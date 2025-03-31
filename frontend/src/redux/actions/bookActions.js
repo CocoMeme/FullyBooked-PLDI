@@ -128,7 +128,8 @@ export const createBook = (bookData, token) => async (dispatch) => {
     // Prepare final book data with images
     const finalBookData = {
       ...bookData,
-      coverImage: allImageUrls
+      coverImage: allImageUrls,
+      stock: bookData.stock !== undefined ? parseInt(bookData.stock, 10) : 0 // Explicitly handle stock
     };
     
     console.log('Creating book with data:', finalBookData);
@@ -182,35 +183,28 @@ export const updateBook = (bookId, bookData, token) => async (dispatch) => {
         console.log(`Processing update image ${index}: ${uri}`);
         
         const fileName = uri.split('/').pop();
-        const fileType = 'image/jpeg'; // Default to JPEG
         
         // Append each file individually with 'files' as the field name (to match backend)
         imageFormData.append('files', {
           name: fileName,
-          type: fileType,
-          uri: Platform.OS === 'ios' ? uri.replace('file://', '') : uri
+          type: 'image/jpeg',
+          uri: uri
         });
       });
-      
-      // Config for image upload request
-      const uploadConfig = {
-        headers: {
-          'Accept': 'application/json',
-          'Authorization': `Bearer ${token}`
-        }
-      };
       
       console.log('Uploading images for update...');
       
       try {
-        // Use direct axios instance for more control over the request
-        const baseUrl = api.defaults.baseURL || 'http://10.0.2.2:3000/api';
-        const uploadUrl = `${baseUrl}${API_URL.UPLOAD_COVER}`;
-        
-        const uploadResponse = await axios.post(
-          uploadUrl,
+        // Use the same API instance approach as createBook
+        const uploadResponse = await api.post(
+          API_URL.UPLOAD_COVER,
           imageFormData,
-          uploadConfig
+          {
+            headers: {
+              'Accept': 'application/json',
+              'Content-Type': 'multipart/form-data'
+            }
+          }
         );
         
         if (uploadResponse.data && uploadResponse.data.coverImages) {
@@ -219,7 +213,7 @@ export const updateBook = (bookId, bookData, token) => async (dispatch) => {
         }
       } catch (uploadError) {
         console.error('Image upload error:', uploadError);
-        console.error('Error details:', uploadError.response?.data || uploadError.message);
+        console.error('Error details:', uploadError.message);
         throw new Error(`Image upload failed: ${uploadError.message}`);
       }
     }
@@ -234,7 +228,8 @@ export const updateBook = (bookId, bookData, token) => async (dispatch) => {
     // Prepare the final book data
     const finalBookData = {
       ...bookData,
-      coverImage: allImageUrls
+      coverImage: allImageUrls,
+      stock: bookData.stock !== undefined ? parseInt(bookData.stock, 10) : 0 // Explicitly handle stock
     };
     
     console.log('Updating book with data:', finalBookData);

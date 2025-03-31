@@ -42,6 +42,7 @@ const createBook = async (req, res) => {
     const bookData = {
       ...body,
       coverImage: imageUrls,
+      stock: body.stock !== undefined ? parseInt(body.stock) : 0, // Ensure stock is properly set
     };
     
     console.log("Creating book with data:", bookData);
@@ -123,10 +124,12 @@ const updateBook = async (req, res) => {
       updatedImages = body.coverImage;
     }
 
-    // Prepare update data
+    // Prepare update data with explicit stock handling
     const updateData = {
       ...body,
       coverImage: updatedImages,
+      // Ensure stock is properly set, keep existing stock if not provided in request
+      stock: body.stock !== undefined ? parseInt(body.stock) : existingBook.stock,
     };
 
     // Validate price and discount price if tag is 'Sale'

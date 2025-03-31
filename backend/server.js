@@ -33,7 +33,7 @@ app.use(express.urlencoded({ extended: true })); // Parse URL-encoded bodies
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Database connection
-const MONGO_URI = process.env.MONGODB_URI || 'mongodb+srv://fullybooked:fullybooked123@cluster0.qvpflev.mongodb.net/FullyBookedDB?retryWrites=true&w=majority';
+const MONGO_URI = process.env.MONGODB_URI || 'mongodb+srv://fullybookedipt1:W7lQlq6JFqYcLv2t@cluster0.1uumi.mongodb.net/fullybooked?retryWrites=true&w=majority&appName=Cluster0';
 
 mongoose.connect(MONGO_URI)
   .then(() => console.log('Connected to MongoDB successfully!'))
