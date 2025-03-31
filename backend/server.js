@@ -7,6 +7,7 @@ const dotenv = require('dotenv');
 const bookRoutes = require('./src/routes/book.route');
 const userRoutes = require('./src/routes/user.route');
 const orderRoutes = require('./src/routes/order.route');
+const orderlistRoutes = require('./src/routes/orderlist.route');
 const reviewRoutes = require('./src/routes/review.route');
 
 // Load environment variables from .env file
@@ -65,6 +66,7 @@ app.get('/api/ping', (req, res) => {
 app.use('/api/books', bookRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/orders', orderRoutes);
+app.use('/api/orderlist',orderlistRoutes);
 app.use('/api/reviews', reviewRoutes);
 
 // Handle 404 errors

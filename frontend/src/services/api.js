@@ -16,7 +16,7 @@ if (Platform.OS === 'android') {
   } else {
     // For physical Android devices using Expo Go, we need your development machine's IP
     // This should be your computer's IP address on your local network
-    BASE_URL = 'http://192.168.1.66:3000/api'; // Replace with your actual IP
+    BASE_URL = 'http://192.168.112.70:3000/api'; // Replace with your actual IP
   }
 } else if (Platform.OS === 'ios') {
   // For iOS simulator, use localhost

@@ -7,10 +7,12 @@ import {
   Image, 
   TouchableOpacity,
   ActivityIndicator,
-  SafeAreaView
+  SafeAreaView,
+  Alert
 } from 'react-native';
 import { useSelector, useDispatch } from 'react-redux';
 import { fetchBooks } from '../redux/actions/bookActions';
+import { addToCart } from '../redux/actions/cartActions'; // Import the addToCart action
 import { COLORS, FONTS, SIZES } from '../constants/theme';
 import Header from '../components/Header';
 import { Ionicons } from '@expo/vector-icons';
@@ -30,12 +32,18 @@ const BooksScreen = ({ navigation }) => {
     </TouchableOpacity>
   );
 
+  // Handle Add to Cart
+  const handleAddToCart = (book) => {
+    dispatch(addToCart(book)); // Dispatch the addToCart action
+    Alert.alert('Success', `${book.title} has been added to your cart.`);
+  };
+
   const renderBookItem = ({ item }) => (
-    <TouchableOpacity 
-      style={styles.bookItem}
-      onPress={() => navigation.navigate('BookDetails', { bookId: item._id })}
-    >
-      <View style={styles.bookCard}>
+    <View style={styles.bookItem}>
+      <TouchableOpacity 
+        style={styles.bookCard}
+        onPress={() => navigation.navigate('BookDetails', { bookId: item._id })}
+      >
         <Image 
           source={{ uri: item.coverImage?.[0] || 'https://via.placeholder.com/150' }}
           style={styles.bookCover}
@@ -64,8 +72,15 @@ const BooksScreen = ({ navigation }) => {
             )}
           </View>
         </View>
-      </View>
-    </TouchableOpacity>
+      </TouchableOpacity>
+      {/* Add to Cart Button */}
+      <TouchableOpacity 
+        style={styles.addToCartButton} 
+        onPress={() => handleAddToCart(item)}
+      >
+        <Text style={styles.addToCartText}>Add to Cart</Text>
+      </TouchableOpacity>
+    </View>
   );
 
   const handleRetry = () => {
@@ -92,17 +107,17 @@ const BooksScreen = ({ navigation }) => {
         </View>
       ) : (
         <FlatList
-          data={books}
-          renderItem={renderBookItem}
-          keyExtractor={(item) => item._id.toString()}
-          numColumns={2}
-          contentContainerStyle={styles.listContainer}
-          showsVerticalScrollIndicator={false}
-          ListEmptyComponent={
-            <View style={styles.emptyContainer}>
-              <Text style={styles.emptyText}>No books found</Text>
-            </View>
-          }
+  data={books}
+  renderItem={renderBookItem}
+  keyExtractor={(item) => item._id.toString()} // Ensure each item has a unique key
+  numColumns={2}
+  contentContainerStyle={styles.listContainer}
+  showsVerticalScrollIndicator={false}
+  ListEmptyComponent={
+    <View style={styles.emptyContainer}>
+      <Text style={styles.emptyText}>No books found</Text>
+    </View>
+  }
         />
       )}
     </SafeAreaView>
@@ -232,6 +247,18 @@ const styles = StyleSheet.create({
     ...FONTS.medium,
     fontSize: SIZES.medium,
     color: COLORS.onBackground,
+  },
+  addToCartButton: {
+    backgroundColor: COLORS.primary,
+    paddingVertical: 10,
+    alignItems: 'center',
+    borderRadius: SIZES.base,
+    marginTop: 8,
+  },
+  addToCartText: {
+    color: '#fff',
+    ...FONTS.medium,
+    fontSize: SIZES.medium,
   },
 });
 
