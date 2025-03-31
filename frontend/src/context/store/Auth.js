@@ -17,15 +17,29 @@ const Auth = props => {
     const [showChild, setShowChild] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
 
+    // Helper function to check if token is expired
+    const isTokenExpired = (decodedToken) => {
+        if (!decodedToken.exp) return true;
+        const currentTime = Date.now() / 1000;
+        return decodedToken.exp < currentTime;
+    };
+
     useEffect(() => {
         const loadToken = async () => {
             try {
                 const token = await AsyncStorage.getItem("jwt");
                 if (token) {
                     const decoded = jwtDecode(token);
+                    
+                    // Check if token is expired
+                    if (isTokenExpired(decoded)) {
+                        console.log("Token expired, removing...");
+                        await AsyncStorage.removeItem("jwt");
+                        return false;
+                    }
+                    
+                    console.log("Valid token found, restoring session");
                     dispatch(setCurrentUser(decoded));
-                    setShowChild(true);
-                    setIsLoading(false);
                     return true;
                 }
                 return false;
@@ -35,7 +49,17 @@ const Auth = props => {
             }
         };
         
-        // Handle Firebase auth state changes
+        // First attempt to load token from AsyncStorage immediately
+        const initializeAuth = async () => {
+            const hasToken = await loadToken();
+            if (!hasToken) {
+                console.log("No valid JWT token in AsyncStorage");
+            }
+        };
+        
+        initializeAuth();
+        
+        // Then handle Firebase auth state changes
         const unsubscribe = onAuthStateChanged(auth, async (user) => {
             if (user) {
                 console.log("Firebase user is signed in:", user.email);

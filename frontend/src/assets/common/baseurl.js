@@ -1,16 +1,33 @@
 import { Platform } from 'react-native';
+import Constants from 'expo-constants';
 
 let baseURL = '';
 
-// For local development
+// Get the device type - true if running in an emulator
+const isEmulator = Constants.appOwnership === 'expo' && Constants.executionEnvironment === 'standalone';
+
 if (Platform.OS === 'android') {
-    baseURL = 'http://192.168.1.66:3000/api/';
+  // For Android emulator, use 10.0.2.2
+  if (isEmulator) {
+    baseURL = 'http://10.0.2.2:3000/api/';
   } else {
-    baseURL = 'http://localhost:3000/api/'; 
+    // For physical Android devices using Expo Go, we need your development machine's IP
+    baseURL = 'http://192.168.1.66:3000/api/'; // Replace with your actual IP
   }
+} else if (Platform.OS === 'ios') {
+  // For iOS simulator, use localhost
+  if (isEmulator) {
+    baseURL = 'http://localhost:3000/api/';
+  } else {
+    // For physical iOS devices using Expo Go
+    baseURL = 'http://192.168.1.66:3000/api/'; // Replace with your actual IP
+  }
+} else {
+  // Web or other platforms
+  baseURL = 'http://localhost:3000/api/'; 
+}
 
-console.log("Using API base URL:", baseURL);
-
+console.log("Using API base URL (from baseurl.js):", baseURL);
 
 export const testAPIConnection = async () => {
   try {

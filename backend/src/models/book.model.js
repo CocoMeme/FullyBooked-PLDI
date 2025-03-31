@@ -12,7 +12,7 @@ const bookSchema = new mongoose.Schema({
   },
   category: {
     type: String,
-    enum: ['Adventure', 'Fiction', 'Business', 'Action', 'Comedy', 'Drama'],
+    enum: ['Sci-Fi','Adventure', 'Fiction', 'Business', 'Action', 'Comedy', 'Drama', 'Romance', 'Horror', 'Thriller'],
     required: true,
   },
   description: {

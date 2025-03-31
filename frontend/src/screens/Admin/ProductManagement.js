@@ -20,6 +20,7 @@ import Header from '../../components/Header';
 import { COLORS, FONTS, SIZES } from '../../constants/theme';
 import AuthGlobal from '../../context/store/AuthGlobal';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Picker } from '@react-native-picker/picker';
 
 const ProductManagement = ({ route, navigation }) => {
   const dispatch = useDispatch();
@@ -93,10 +94,10 @@ const ProductManagement = ({ route, navigation }) => {
       // Launch image library
       console.log('Launching image library...');
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: 'Images',
+        mediaTypes: ImagePicker.MediaTypeOptions.Images, // Updated to use MediaTypeOptions
         allowsEditing: true,
         aspect: [4, 3],
-        quality: 1,
+        quality: 0.8, // Slightly reduced quality to decrease file size
       });
       
       console.log('Image picker result:', JSON.stringify(result));
@@ -145,7 +146,15 @@ const ProductManagement = ({ route, navigation }) => {
     }
 
     try {
-      await dispatch(createBook(newBook, token));
+      // Prepare data with correct numeric types
+      const bookDataToSend = {
+        ...newBook,
+        price: parseFloat(newBook.price),
+        stock: parseInt(newBook.stock, 10),
+        discountPrice: newBook.discountPrice ? parseFloat(newBook.discountPrice) : undefined
+      };
+      
+      await dispatch(createBook(bookDataToSend, token));
       setModalVisible(false);
       setNewBook({
         title: '',
@@ -154,12 +163,13 @@ const ProductManagement = ({ route, navigation }) => {
         category: '',
         price: '',
         stock: '',
-        tag: 'Regular',
+        tag: 'New',
         discountPrice: '',
         coverImage: []
       });
       Alert.alert('Success', 'Book created successfully');
     } catch (error) {
+      console.error('Create book error:', error);
       Alert.alert('Error', error.response?.data?.message || 'Failed to create book');
     }
   };
@@ -183,7 +193,15 @@ const ProductManagement = ({ route, navigation }) => {
     }
 
     try {
-      await dispatch(updateBook(selectedBook._id, selectedBook, token));
+      // Prepare data with correct numeric types
+      const bookDataToSend = {
+        ...selectedBook,
+        price: parseFloat(selectedBook.price),
+        stock: parseInt(selectedBook.stock, 10),
+        discountPrice: selectedBook.discountPrice ? parseFloat(selectedBook.discountPrice) : undefined
+      };
+      
+      await dispatch(updateBook(selectedBook._id, bookDataToSend, token));
       setEditModalVisible(false);
       setSelectedBook(null);
       Alert.alert('Success', 'Book updated successfully');
@@ -249,46 +267,79 @@ const ProductManagement = ({ route, navigation }) => {
         numberOfLines={4}
       />
 
-      <Text style={styles.label}>Category *</Text>
-      <TextInput
-        style={styles.input}
-        value={book.category}
-        onChangeText={(text) => setBook({ ...book, category: text })}
-        placeholder="Enter book category"
-      />
+      {/* Category and Tag side by side */}
+      <View style={styles.rowContainer}>
+        <View style={styles.rowItem}>
+          <Text style={styles.label}>Category *</Text>
+          <View style={styles.input}>
+            <Picker
+              selectedValue={book.category}
+              onValueChange={(itemValue) => setBook({ ...book, category: itemValue })}
+              style={{ height: 50, margin: -15 }}
+            >
+              <Picker.Item label="Select Category" value="" />
+              <Picker.Item label="Sci-Fi" value="Sci-Fi" />
+              <Picker.Item label="Adventure" value="Adventure" />
+              <Picker.Item label="Fiction" value="Fiction" />
+              <Picker.Item label="Business" value="Business" />
+              <Picker.Item label="Action" value="Action" />
+              <Picker.Item label="Comedy" value="Comedy" />
+              <Picker.Item label="Drama" value="Drama" />
+              <Picker.Item label="Romance" value="Romance" />
+              <Picker.Item label="Horror" value="Horror" />
+              <Picker.Item label="Thriller" value="Thriller" />
+            </Picker>
+          </View>
+        </View>
+        
+        <View style={styles.rowItem}>
+          <Text style={styles.label}>Tag</Text>
+          <View style={styles.input}>
+            <Picker
+              selectedValue={book.tag}
+              onValueChange={(itemValue) => setBook({ ...book, tag: itemValue })}
+              style={{ height: 50, margin: -15 }}
+            >
+              <Picker.Item label="None" value="None" />
+              <Picker.Item label="New" value="New" />
+              <Picker.Item label="Sale" value="Sale" />
+              <Picker.Item label="Hot" value="Hot" />
+            </Picker>
+          </View>
+        </View>
+      </View>
 
-      <Text style={styles.label}>Price *</Text>
-      <TextInput
-        style={styles.input}
-        value={book.price.toString()}
-        onChangeText={(text) => setBook({ ...book, price: text })}
-        placeholder="Enter price"
-        keyboardType="numeric"
-      />
-
-      <Text style={styles.label}>Stock *</Text>
-      <TextInput
-        style={styles.input}
-        value={book.stock.toString()}
-        onChangeText={(text) => setBook({ ...book, stock: text })}
-        placeholder="Enter stock quantity"
-        keyboardType="numeric"
-      />
-
-      <Text style={styles.label}>Tag</Text>
-      <TextInput
-        style={styles.input}
-        value={book.tag}
-        onChangeText={(text) => setBook({ ...book, tag: text })}
-        placeholder="Regular/Sale/New"
-      />
+      {/* Price and Stock side by side */}
+      <View style={styles.rowContainer}>
+        <View style={styles.rowItem}>
+          <Text style={styles.label}>Price *</Text>
+          <TextInput
+            style={styles.input}
+            value={typeof book.price === 'number' ? String(book.price) : book.price}
+            onChangeText={(text) => setBook({ ...book, price: text })}
+            placeholder="Enter price"
+            keyboardType="numeric"
+          />
+        </View>
+        
+        <View style={styles.rowItem}>
+          <Text style={styles.label}>Stock *</Text>
+          <TextInput
+            style={styles.input}
+            value={typeof book.stock === 'number' ? String(book.stock) : book.stock}
+            onChangeText={(text) => setBook({ ...book, stock: text })}
+            placeholder="Enter stock quantity"
+            keyboardType="numeric"
+          />
+        </View>
+      </View>
 
       {book.tag === 'Sale' && (
         <>
           <Text style={styles.label}>Discount Price</Text>
           <TextInput
             style={styles.input}
-            value={book.discountPrice ? book.discountPrice.toString() : ''}
+            value={typeof book.discountPrice === 'number' ? String(book.discountPrice) : (book.discountPrice || '')}
             onChangeText={(text) => setBook({ ...book, discountPrice: text })}
             placeholder="Enter discount price"
             keyboardType="numeric"
@@ -618,6 +669,15 @@ const styles = StyleSheet.create({
   submitButtonText: {
     color: 'white',
     ...FONTS.medium,
+  },
+  rowContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  rowItem: {
+    flex: 1,
+    marginRight: 8,
   },
 });
 

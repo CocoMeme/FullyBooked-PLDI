@@ -37,28 +37,38 @@ export const loginUser = (user, dispatch) => {
             }
             return res.json();
         })
-        .then((data) => {
+        .then(async (data) => {
             console.log("Login response data:", data);
             if (data && data.token) {
                 const token = data.token;
-                AsyncStorage.setItem("jwt", token)
-                    .then(() => {
-                        console.log("Token stored in AsyncStorage");
-                        const decoded = jwtDecode(token);
-                        console.log("Decoded token:", decoded);
-                        dispatch(setCurrentUser(decoded, user));
-                        
-                        Toast.show({
-                            type: "success",
-                            text1: "Login Successful",
-                            text2: "Welcome back!",
-                            visibilityTime: 3000,
-                            topOffset: 60,
-                        });
-                    })
-                    .catch(err => {
-                        console.error("Failed to store token:", err);
+                try {
+                    // Store the token
+                    await AsyncStorage.setItem("jwt", token);
+                    console.log("Token stored in AsyncStorage");
+                    
+                    // Store user data separately
+                    const userData = data.user || {
+                        email: user.email,
+                        username: data.username || user.email.split('@')[0]
+                    };
+                    
+                    await AsyncStorage.setItem("userData", JSON.stringify(userData));
+                    console.log("User data stored in AsyncStorage");
+                    
+                    // Decode token and dispatch to context
+                    const decoded = jwtDecode(token);
+                    dispatch(setCurrentUser(decoded, userData));
+                    
+                    Toast.show({
+                        type: "success",
+                        text1: "Login Successful",
+                        text2: "Welcome back!",
+                        visibilityTime: 3000,
+                        topOffset: 60,
                     });
+                } catch (err) {
+                    console.error("Failed to store auth data:", err);
+                }
             } else {
                 console.error("Login failed: No token in response");
                 Toast.show({
@@ -98,7 +108,7 @@ export const getUserProfile = (id) => {
     // Fix URL construction here too
     const userUrl = baseURL.endsWith('/') ? `${baseURL}users/${id}` : `${baseURL}/users/${id}`;
     
-    fetch(userUrl, {
+    return fetch(userUrl, {
         method: "GET",
         headers: {
             Accept: "application/json",
@@ -106,8 +116,14 @@ export const getUserProfile = (id) => {
         },
     })
     .then((res) => res.json())
-    .then((data) => console.log(data))
-    .catch((err) => console.error("Error fetching user profile:", err));
+    .then((data) => {
+        console.log("User data fetched:", data);
+        return data;
+    })
+    .catch((err) => {
+        console.error("Error fetching user profile:", err);
+        return null;
+    });
 }
 
 export const logoutUser = (dispatch) => {
@@ -120,14 +136,17 @@ export const logoutUser = (dispatch) => {
         console.error("Error during Firebase signout:", fbErr);
     }
     
-    // Clear the JWT token
-    AsyncStorage.removeItem("jwt")
+    // Clear auth data from AsyncStorage
+    Promise.all([
+        AsyncStorage.removeItem("jwt"),
+        AsyncStorage.removeItem("userData")
+    ])
         .then(() => {
-            console.log("Token removed from AsyncStorage");
+            console.log("Auth data removed from AsyncStorage");
             dispatch(setCurrentUser({}));
         })
         .catch(err => {
-            console.error("Error removing token:", err);
+            console.error("Error removing auth data:", err);
         });
 }
 

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
-import { ActivityIndicator, View } from 'react-native';
+import { ActivityIndicator, View, Text } from 'react-native';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../services/firebaseConfig';
 import AuthNavigator from './AuthNavigator';
@@ -10,6 +10,9 @@ import AdminNavigator from './AdminNavigator';
 import SplashScreen from '../components/SplashScreen';
 import AuthGlobal from '../context/store/AuthGlobal';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { jwtDecode } from 'jwt-decode';
+import { setCurrentUser } from '../context/actions/auth.action';
+import { COLORS } from '../constants/theme';
 
 const Stack = createStackNavigator();
 
@@ -19,16 +22,65 @@ const AppNavigator = () => {
   const [firebaseUser, setFirebaseUser] = useState(null);
   const [userRole, setUserRole] = useState(null);
 
-  // Handle Firebase user state changes
+  // First priority: Check AsyncStorage for saved token and user data
+  useEffect(() => {
+    const restoreUserSession = async () => {
+      try {
+        // Check for JWT token in AsyncStorage
+        const token = await AsyncStorage.getItem("jwt");
+        const userDataString = await AsyncStorage.getItem("userData");
+        
+        if (token) {
+          try {
+            // Decode and verify token
+            const decoded = jwtDecode(token);
+            const currentTime = Date.now() / 1000;
+            
+            // Check if token is still valid (not expired)
+            if (decoded.exp && decoded.exp > currentTime) {
+              // If we have user data stored, use it
+              const userData = userDataString ? JSON.parse(userDataString) : null;
+              console.log("Restored session from AsyncStorage");
+              
+              // Dispatch to context
+              context.dispatch(setCurrentUser(decoded, userData));
+              setUserRole(decoded.role || 'customer');
+            } else {
+              console.log("Stored token is expired");
+              // Clean up expired token
+              await AsyncStorage.removeItem("jwt");
+            }
+          } catch (decodeError) {
+            console.error("Error decoding token:", decodeError);
+          }
+        }
+      } catch (error) {
+        console.error("Error restoring user session:", error);
+      } finally {
+        // Firebase will handle further initialization if needed
+      }
+    };
+    
+    restoreUserSession();
+  }, []);
+
+  // Second priority: Handle Firebase user state changes
   useEffect(() => {
     const subscriber = onAuthStateChanged(auth, (user) => {
       setFirebaseUser(user);
-      if (!user && initializing) setInitializing(false);
+      
+      // Only set initializing to false if we know the Firebase state
+      // and we're still in initializing state
+      if (initializing) {
+        // Small delay to ensure Auth context has time to process
+        // the AsyncStorage restoration first
+        setTimeout(() => setInitializing(false), 300);
+      }
     });
     return subscriber; // Unsubscribe on unmount
   }, []);
 
-  // Handle Context API authentication state
+  // Third priority: Handle Context API authentication state changes
   useEffect(() => {
     const verifyAuth = async () => {
       try {
@@ -40,12 +92,10 @@ const AppNavigator = () => {
           // If Firebase is authenticated but Context is not, fetch user data
           const token = await AsyncStorage.getItem("jwt");
           if (!token) {
-            // If no token but Firebase auth exists, we need to handle this edge case
-            // This could happen if Firebase auth succeeds but backend token generation fails
-            console.log('Firebase auth exists but no JWT token found');
+            // If no token but Firebase auth exists, try to get a token from backend
+            console.log('Firebase auth exists but no JWT token found - should request new token');
+            // This will be handled by Auth.js
           }
-          
-          // This will be handled by Auth.js useEffect which checks AsyncStorage for token
         }
       } catch (error) {
         console.error('Error verifying authentication:', error);

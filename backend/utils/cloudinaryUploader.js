@@ -4,7 +4,7 @@ const path = require('path');
 
 /**
  * Upload an image file to Cloudinary
- * @param {Object} file - The file object from multer
+ * @param {Object} file - The file object from multer or React Native
  * @param {String} folder - The folder name in Cloudinary
  * @returns {Object} - Object with success status and URL or error
  */
@@ -24,25 +24,42 @@ const uploadToCloudinary = async (file, folder = '') => {
 
     // Handle different file object structures
     let filePath;
+    
     if (file.path) {
-      // Standard multer file
+      // Standard multer file from Express
       filePath = file.path;
+      console.log('Using standard multer file path:', filePath);
     } else if (file.uri) {
-      // React Native file format
+      // React Native file format with URI
       filePath = file.uri;
+      console.log('Using React Native URI:', filePath);
+    } else if (typeof file === 'string' && (file.startsWith('file:///') || file.startsWith('/'))) {
+      // Direct file path/URI string
+      filePath = file;
+      console.log('Using direct file path/URI string:', filePath);
     } else {
+      console.error('Unrecognized file format:', file);
       throw new Error('Invalid file format');
     }
 
-    // Upload the file to Cloudinary
-    const result = await cloudinary.uploader.upload(filePath, {
+    console.log('Uploading to Cloudinary with path:', filePath);
+    
+    // Upload options
+    const uploadOptions = {
       folder: folder,
       resource_type: 'auto',
-    });
+      use_filename: true,
+      unique_filename: true
+    };
+    
+    // Upload the file to Cloudinary
+    const result = await cloudinary.uploader.upload(filePath, uploadOptions);
+    console.log('Cloudinary upload successful:', result.secure_url);
 
-    // Remove the local file after upload if it's a server path
+    // Remove the local file after upload if it's a server path and exists
     if (file.path && fs.existsSync(file.path)) {
       fs.unlinkSync(file.path);
+      console.log('Removed local file after upload:', file.path);
     }
 
     return {

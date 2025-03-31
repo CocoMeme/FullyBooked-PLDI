@@ -1,6 +1,7 @@
-import axios from 'axios';
 import * as types from './bookActionTypes';
-import API_URL from '../../services/api';
+import { API_URL, api } from '../../services/api';
+import { Platform } from 'react-native';
+import axios from 'axios';
 
 // Fetch all books
 export const fetchBooks = (filters = {}) => async (dispatch) => {
@@ -16,7 +17,7 @@ export const fetchBooks = (filters = {}) => async (dispatch) => {
         .join('&');
     }
 
-    const response = await axios.get(`${API_URL.GET_ALL_BOOKS}${queryParams}`);
+    const response = await api.get(`${API_URL.GET_ALL_BOOKS}${queryParams}`);
     dispatch({
       type: types.FETCH_BOOKS_SUCCESS,
       payload: response.data.books,
@@ -33,7 +34,7 @@ export const fetchBooks = (filters = {}) => async (dispatch) => {
 export const fetchBookDetails = (bookId) => async (dispatch) => {
   try {
     dispatch({ type: types.FETCH_BOOK_DETAILS_REQUEST });
-    const response = await axios.get(API_URL.GET_BOOK_BY_ID(bookId));
+    const response = await api.get(API_URL.GET_BOOK_BY_ID(bookId));
     dispatch({
       type: types.FETCH_BOOK_DETAILS_SUCCESS,
       payload: response.data.book,
@@ -51,52 +52,92 @@ export const createBook = (bookData, token) => async (dispatch) => {
   try {
     dispatch({ type: types.CREATE_BOOK_REQUEST });
 
-    // Create FormData for multipart/form-data (images)
-    const formData = new FormData();
+    // Step 1: Handle image uploads first
+    let uploadedImageUrls = [];
     
-    // Append book data
-    Object.keys(bookData).forEach(key => {
-      if (key === 'coverImage') {
-        if (Array.isArray(bookData.coverImage) && bookData.coverImage.length > 0) {
-          bookData.coverImage.forEach((uri, index) => {
-            if (uri && uri.trim() !== '') {
-              console.log(`Processing image ${index}:`, uri);
-              
-              // Get filename from URI
-              let filename = uri.split('/').pop();
-              if (!filename) filename = `image${index}.jpg`;
-              
-              // Determine MIME type
-              const match = /\.(\w+)$/.exec(filename);
-              const type = match ? `image/${match[1].toLowerCase()}` : 'image/jpeg';
-              
-              // Create file object for FormData
-              const fileObj = {
-                uri: uri,
-                type: type,
-                name: filename
-              };
-              
-              console.log('Appending file:', fileObj);
-              formData.append('files', fileObj);
-            }
+    if (Array.isArray(bookData.coverImage) && bookData.coverImage.length > 0) {
+      const imagesToUpload = bookData.coverImage.filter(uri => uri && !uri.startsWith('http'));
+      
+      if (imagesToUpload.length > 0) {
+        console.log(`Processing ${imagesToUpload.length} images for upload`);
+        
+        // Create FormData for image uploads
+        const imageFormData = new FormData();
+        
+        // Add each image to the FormData with simplified approach
+        imagesToUpload.forEach((uri, index) => {
+          console.log(`Adding image ${index} to form data: ${uri}`);
+          
+          // Get just the filename
+          const fileName = uri.split('/').pop();
+          
+          // Simplified file object
+          imageFormData.append('files', {
+            name: fileName,
+            type: 'image/jpeg',
+            uri: uri
           });
-        } else {
-          console.warn('No valid cover images provided');
+        });
+        
+        // Log what we're sending
+        console.log(`Uploading ${imagesToUpload.length} images to ${api.defaults.baseURL}${API_URL.UPLOAD_COVER}`);
+        
+        // Send the request using our configured API instance
+        try {
+          const uploadResponse = await api.post(
+            API_URL.UPLOAD_COVER,
+            imageFormData,
+            {
+              headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'multipart/form-data'
+              }
+            }
+          );
+          
+          console.log('Upload response:', uploadResponse.data);
+          
+          if (uploadResponse.data && uploadResponse.data.coverImages) {
+            uploadedImageUrls = uploadResponse.data.coverImages;
+            console.log('Images uploaded successfully:', uploadedImageUrls);
+          }
+        } catch (uploadError) {
+          console.error('Image upload error:', uploadError);
+          
+          // If response has error details, log them
+          if (uploadError.response) {
+            console.error('Upload error details:', uploadError.response.data);
+          }
+          
+          throw new Error(`Image upload failed: ${uploadError.message}`);
         }
-      } else {
-        formData.append(key, bookData[key]);
       }
-    });
-
-    console.log('Sending form data for book creation');
-    const response = await axios.post(API_URL.CREATE_BOOK, formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-        'Authorization': `Bearer ${token}`
-      }
-    });
-
+    }
+    
+    // Step 2: Create book with image URLs
+    // Combine any existing URLs with newly uploaded ones
+    const allImageUrls = [
+      ...(bookData.coverImage || []).filter(uri => uri && uri.startsWith('http')),
+      ...uploadedImageUrls
+    ];
+    
+    if (allImageUrls.length === 0) {
+      throw new Error('No valid image URLs available');
+    }
+    
+    // Prepare final book data with images
+    const finalBookData = {
+      ...bookData,
+      coverImage: allImageUrls
+    };
+    
+    console.log('Creating book with data:', finalBookData);
+    
+    // Create the book
+    const response = await api.post(API_URL.CREATE_BOOK, finalBookData);
+    
+    console.log('Book creation successful:', response.data);
+    
     dispatch({
       type: types.CREATE_BOOK_SUCCESS,
       payload: response.data,
@@ -104,10 +145,10 @@ export const createBook = (bookData, token) => async (dispatch) => {
     
     return response.data;
   } catch (error) {
-    console.error('Create book error:', error);
+    console.error('Create book error:', error.message);
     dispatch({
       type: types.CREATE_BOOK_FAILURE,
-      payload: error.response?.data?.message || 'Failed to create book',
+      payload: error.message || 'Failed to create book',
     });
     throw error;
   }
@@ -118,52 +159,94 @@ export const updateBook = (bookId, bookData, token) => async (dispatch) => {
   try {
     dispatch({ type: types.UPDATE_BOOK_REQUEST });
     
-    // Create FormData for multipart/form-data (images)
-    const formData = new FormData();
-    
-    // Append book data
-    Object.keys(bookData).forEach(key => {
-      if (key === 'coverImage') {
-        if (Array.isArray(bookData.coverImage) && bookData.coverImage.length > 0) {
-          bookData.coverImage.forEach((uri, index) => {
-            if (uri && uri.trim() !== '') {
-              console.log(`Processing image ${index} for update:`, uri);
-              
-              // Get filename from URI
-              let filename = uri.split('/').pop();
-              if (!filename) filename = `image${index}.jpg`;
-              
-              // Determine MIME type
-              const match = /\.(\w+)$/.exec(filename);
-              const type = match ? `image/${match[1].toLowerCase()}` : 'image/jpeg';
-              
-              // Create file object for FormData
-              const fileObj = {
-                uri: uri,
-                type: type,
-                name: filename
-              };
-              
-              console.log('Appending file for update:', fileObj);
-              formData.append('files', fileObj);
-            }
-          });
-        } else {
-          console.warn('No valid cover images provided for update');
+    // Step 1: Upload any new images first if they exist
+    const imagesToUpload = [];
+    if (Array.isArray(bookData.coverImage) && bookData.coverImage.length > 0) {
+      // Filter out images that aren't URLs already (need to be uploaded)
+      for (const uri of bookData.coverImage) {
+        if (uri && !uri.startsWith('http')) {
+          imagesToUpload.push(uri);
         }
-      } else {
-        formData.append(key, bookData[key]);
       }
-    });
+    }
 
-    console.log('Sending form data for book update');
-    const response = await axios.put(API_URL.UPDATE_BOOK(bookId), formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-        'Authorization': `Bearer ${token}`
+    let uploadedImageUrls = [];
+    
+    // If we have images to upload
+    if (imagesToUpload.length > 0) {
+      // Create FormData specifically for image uploads
+      const imageFormData = new FormData();
+      
+      // Add each image to the FormData - use same method as createBook
+      imagesToUpload.forEach((uri, index) => {
+        console.log(`Processing update image ${index}: ${uri}`);
+        
+        const fileName = uri.split('/').pop();
+        const fileType = 'image/jpeg'; // Default to JPEG
+        
+        // Append each file individually with 'files' as the field name (to match backend)
+        imageFormData.append('files', {
+          name: fileName,
+          type: fileType,
+          uri: Platform.OS === 'ios' ? uri.replace('file://', '') : uri
+        });
+      });
+      
+      // Config for image upload request
+      const uploadConfig = {
+        headers: {
+          'Accept': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      };
+      
+      console.log('Uploading images for update...');
+      
+      try {
+        // Use direct axios instance for more control over the request
+        const baseUrl = api.defaults.baseURL || 'http://10.0.2.2:3000/api';
+        const uploadUrl = `${baseUrl}${API_URL.UPLOAD_COVER}`;
+        
+        const uploadResponse = await axios.post(
+          uploadUrl,
+          imageFormData,
+          uploadConfig
+        );
+        
+        if (uploadResponse.data && uploadResponse.data.coverImages) {
+          uploadedImageUrls = uploadResponse.data.coverImages;
+          console.log('Images uploaded successfully:', uploadedImageUrls);
+        }
+      } catch (uploadError) {
+        console.error('Image upload error:', uploadError);
+        console.error('Error details:', uploadError.response?.data || uploadError.message);
+        throw new Error(`Image upload failed: ${uploadError.message}`);
       }
-    });
+    }
+    
+    // Step 2: Now update the book with the image URLs
+    // Combine any already-URL images with newly uploaded ones
+    const allImageUrls = [
+      ...(bookData.coverImage || []).filter(uri => uri && uri.startsWith('http')),
+      ...uploadedImageUrls
+    ];
+    
+    // Prepare the final book data
+    const finalBookData = {
+      ...bookData,
+      coverImage: allImageUrls
+    };
+    
+    console.log('Updating book with data:', finalBookData);
+    
+    // Update the book - use the api instance with Authorization header already set
+    const response = await api.put(
+      API_URL.UPDATE_BOOK(bookId),
+      finalBookData
+    );
 
+    console.log('Book update response:', response.data);
+    
     dispatch({
       type: types.UPDATE_BOOK_SUCCESS,
       payload: response.data,
@@ -172,9 +255,17 @@ export const updateBook = (bookId, bookData, token) => async (dispatch) => {
     return response.data;
   } catch (error) {
     console.error('Update book error:', error);
+    
+    // Enhanced error logging
+    if (error.response) {
+      console.error('Server responded with error:', error.response.status, error.response.data);
+    } else if (error.request) {
+      console.error('No response received from server');
+    }
+    
     dispatch({
       type: types.UPDATE_BOOK_FAILURE,
-      payload: error.response?.data?.message || 'Failed to update book',
+      payload: error.message || 'Failed to update book',
     });
     throw error;
   }
@@ -185,11 +276,7 @@ export const deleteBook = (bookId, token) => async (dispatch) => {
   try {
     dispatch({ type: types.DELETE_BOOK_REQUEST });
     
-    const response = await axios.delete(API_URL.DELETE_BOOK(bookId), {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
-    });
+    const response = await api.delete(API_URL.DELETE_BOOK(bookId));
 
     dispatch({
       type: types.DELETE_BOOK_SUCCESS,

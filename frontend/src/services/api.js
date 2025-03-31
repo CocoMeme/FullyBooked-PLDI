@@ -3,35 +3,35 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 
-// Set the appropriate base URL depending on the platform and environment
+// Determine the appropriate base URL based on the environment
 let BASE_URL = '';
 
-// Check if we're running in Expo Go with a tunnel
-// const isExpoTunnel = Constants.manifest && Constants.manifest.debuggerHost && Constants.manifest.debuggerHost.includes('tunnel');
+// Get the device type - true if running in an emulator
+const isEmulator = Constants.appOwnership === 'expo' && Constants.executionEnvironment === 'standalone';
 
-// if (isExpoTunnel) {
-//   // When using Expo tunnel, we don't need to use specific IP addresses
-//   // The API requests will be proxied through the tunnel
-//   BASE_URL = 'https://your-backend-url.com/api'; // Replace with your deployed backend URL if available
-  
-//   // For development with tunnel, we still need to target localhost/backend server
-//   // The tunnel will handle the routing
-//   BASE_URL = 'http://localhost:3000/api'; // This will work through the tunnel
-// } else if (Platform.OS === 'android') {
-//   // For Android emulator, 10.0.2.2 points to host machine's localhost
-//   BASE_URL = 'http://10.0.2.2:3000/api';
-  
-//   // For physical Android devices, use your computer's LAN IP address
-//   BASE_URL = 'http://192.168.1.66:3000/api'; // Using the IP address from your logs
-// } else {
-//   // For iOS simulator
-//   BASE_URL = 'http://localhost:3000/api';
-// }
+if (Platform.OS === 'android') {
+  // For Android emulator, use 10.0.2.2
+  if (isEmulator) {
+    BASE_URL = 'http://10.0.2.2:3000/api';
+  } else {
+    // For physical Android devices using Expo Go, we need your development machine's IP
+    // This should be your computer's IP address on your local network
+    BASE_URL = 'http://192.168.1.66:3000/api'; // Replace with your actual IP
+  }
+} else if (Platform.OS === 'ios') {
+  // For iOS simulator, use localhost
+  if (isEmulator) {
+    BASE_URL = 'http://localhost:3000/api';
+  } else {
+    // For physical iOS devices using Expo Go
+    BASE_URL = 'http://192.168.1.66:3000/api'; // Replace with your actual IP
+  }
+} else {
+  // Web or other platforms
+  BASE_URL = 'http://localhost:3000/api';
+}
 
-// For now, use a temporary base URL
-BASE_URL = 'http://localhost:3000/api';
-
-// console.log('API Base URL:', BASE_URL);
+console.log('API Base URL (from api.js):', BASE_URL);
 
 // Create an Axios instance with a base URL
 const api = axios.create({
@@ -39,7 +39,7 @@ const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
-  timeout: 10000, // 10 second timeout
+  timeout: 15000, // 15 second timeout
 });
 
 // Add a request interceptor to include the auth token in all requests
@@ -91,7 +91,7 @@ api.interceptors.response.use(
   }
 );
 
-// Book API endpoints
+// Book API endpoints - make sure these match your backend routes exactly
 const API_URL = {
   // Book endpoints
   GET_ALL_BOOKS: '/books',
@@ -135,5 +135,5 @@ export const fetchData = async (url, options = {}) => {
   }
 };
 
-export default api;
-export { API_URL };
+export default BASE_URL;
+export { API_URL, api };
