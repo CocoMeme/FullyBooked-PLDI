@@ -14,26 +14,34 @@ export const COLORS = {
 };
 
 export const SIZES = {
-  base: 8,
-  small: 12,
-  font: 14,
-  medium: 16,
-  large: 18,
-  extraLarge: 24,
+  base: 6,
+  small: 10,
+  font: 12,
+  medium: 14,
+  large: 16,
+  extraLarge: 22,
 };
 
 export const FONTS = {
   regular: {
-    fontFamily: 'System',
+    fontFamily: 'Poppins-Regular',
     fontWeight: 'normal',
   },
   medium: {
-    fontFamily: 'System',
+    fontFamily: 'Poppins-Medium',
     fontWeight: '500',
   },
+  semiBold: {
+    fontFamily: 'Poppins-SemiBold',
+    fontWeight: '600',
+  },
   bold: {
-    fontFamily: 'System',
+    fontFamily: 'Poppins-Bold',
     fontWeight: 'bold',
+  },
+  light: {
+    fontFamily: 'Poppins-Light',
+    fontWeight: '300',
   },
 };
 

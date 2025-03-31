@@ -105,7 +105,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    height: 60,
+    height: 50,
     backgroundColor: COLORS.background,
     borderBottomWidth: 1,
     borderBottomColor: '#e0e0e0',
