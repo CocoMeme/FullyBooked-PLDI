@@ -18,10 +18,20 @@ const PORT = process.env.PORT || 3000;
 
 // Enable all CORS requests
 app.use(cors({
-  origin: ['http://localhost:3000', 'http://localhost:8081', 'http://10.0.2.2:8081', 'http://10.0.2.2:3000', 'exp://'],
+  origin: [
+    'http://localhost:3000', 
+    'http://localhost:8081', 
+    'http://10.0.2.2:8081', 
+    'http://10.0.2.2:3000',
+    'http://192.168.1.66:3000',
+    'http://192.168.1.66:8081',
+    'exp://',
+    '*'  // Allow all origins temporarily for testing
+  ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Origin', 'X-Requested-With', 'Content-Type', 'Accept', 'Authorization'],
+  exposedHeaders: ['Authorization']
 }));
 
 // Middleware
@@ -29,11 +39,17 @@ app.use(morgan('dev')); // Logging
 app.use(express.json()); // Parse JSON bodies
 app.use(express.urlencoded({ extended: true })); // Parse URL-encoded bodies
 
+// Request logging middleware for debugging
+app.use((req, res, next) => {
+  console.log(`[DEBUG] ${new Date().toISOString()} - ${req.method} ${req.originalUrl}`);
+  next();
+});
+
 // Serve static files from the uploads directory
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Database connection
-const MONGO_URI = process.env.MONGODB_URI || 'mongodb+srv://fullybookedipt1:W7lQlq6JFqYcLv2t@cluster0.1uumi.mongodb.net/fullybooked?retryWrites=true&w=majority&appName=Cluster0';
+const MONGO_URI = process.env.MONGO_URI;
 
 mongoose.connect(MONGO_URI)
   .then(() => console.log('Connected to MongoDB successfully!'))
@@ -53,7 +69,7 @@ app.use('/api/reviews', reviewRoutes);
 
 // Handle 404 errors
 app.use((req, res) => {
-  console.log(`404 Not Found: ${req.originalUrl}`);
+  console.log(`[404] Not Found: ${req.method} ${req.originalUrl}`);
   res.status(404).json({ message: 'Route not found' });
 });
 

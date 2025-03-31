@@ -54,42 +54,44 @@ const userSchema = new mongoose.Schema({
         default: null,
     },
 
-    // FOR COURIER FIELDS
-    courierApplicationStatus: {
-        type: String,
-        enum: ['pending', 'approved', 'rejected'],
-        default: null,
-    },
-    applicationDate: {
-        type: Date,
-        default: null,
-    },
-    approvalDate: {
-        type: Date,
-        default: null,
-    },
-    isAvailable: {
-        type: Boolean,
-        default: false,
-    },
-    vehicleInfo: {
-        type: String,
-        default: null,
-    },
-    serviceArea: {
-        country: {
+    // Courier information nested in a single object
+    courier: {
+        applicationStatus: {
+            type: String,
+            enum: ['pending', 'approved', 'rejected'],
+            default: null,
+        },
+        applicationDate: {
+            type: Date,
+            default: null,
+        },
+        approvalDate: {
+            type: Date,
+            default: null,
+        },
+        isAvailable: {
+            type: Boolean,
+            default: false,
+        },
+        vehicleInfo: {
             type: String,
             default: null,
         },
-        city: {
+        serviceArea: {
+            country: {
+                type: String,
+                default: null,
+            },
+            city: {
+                type: String,
+                default: null,
+            },
+        },
+        validId: {
             type: String,
             default: null,
         },
-    },
-    validId: {
-        type: String,
-        default: null,
-    },
+    }
 }, { timestamps: true });
 
 userSchema.pre('save', async function (next) {

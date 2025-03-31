@@ -350,4 +350,61 @@ exports.testEndpoint = async (req, res) => {
     }
 };
 
+// User profile update endpoint - for users to update their own profiles
+exports.updateUserProfile = async (req, res) => {
+    try {
+        // The ID comes from the authenticated user token, not a URL parameter
+        // This ensures users can only update their own profiles
+        const userId = req.user.id;
+        
+        console.log(`User ${userId} attempting to update profile:`, req.body);
+
+        // Find the existing user
+        const existingUser = await User.findById(userId);
+        if (!existingUser) {
+            return res.status(404).json({ message: "User not found!" });
+        }
+
+        // Prepare updated data
+        const updatedData = {
+            username: req.body.username,
+            email: req.body.email,
+            phone: req.body.phone || '',
+            address: {
+                city: req.body.address?.city || '',
+                country: req.body.address?.country || '',
+                state: req.body.address?.state || '',
+                zipcode: req.body.address?.zipcode || '',
+            }
+        };
+
+        // Handle avatar if provided
+        if (req.body.avatar && req.body.avatar.startsWith('http')) {
+            updatedData.avatar = req.body.avatar;
+        }
+
+        console.log('Updating user with data:', updatedData);
+
+        // Update the user
+        const updatedUser = await User.findByIdAndUpdate(userId, updatedData, { new: true });
+        
+        // Return success and the updated user
+        res.status(200).json({
+            message: "Profile updated successfully",
+            user: {
+                id: updatedUser._id,
+                username: updatedUser.username,
+                email: updatedUser.email,
+                phone: updatedUser.phone,
+                avatar: updatedUser.avatar,
+                role: updatedUser.role,
+                address: updatedUser.address
+            }
+        });
+    } catch (error) {
+        console.error("Error updating user profile:", error);
+        res.status(500).json({ message: "Failed to update profile!" });
+    }
+};
+
 

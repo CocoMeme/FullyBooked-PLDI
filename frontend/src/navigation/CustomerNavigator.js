@@ -11,6 +11,7 @@ import BooksScreen from '../screens/BooksScreen';
 import CartScreen from '../screens/CartScreen';
 import NotificationScreen from '../screens/NotificationScreen';
 import AccountScreen from '../screens/AccountScreen';
+// import EditProfileScreen from '../screens/EditProfileScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -46,7 +47,8 @@ const NotificationStack = () => (
 const AccountStack = () => (
   <Stack.Navigator screenOptions={{ headerShown: false }}>
     <Stack.Screen name="AccountScreen" component={AccountScreen} />
-    {/* Add profile edit, order history screens here later */}
+    {/* <Stack.Screen name="EditProfile" component={EditProfileScreen} /> */}
+    {/* Add more profile-related screens here later */}
   </Stack.Navigator>
 );
 

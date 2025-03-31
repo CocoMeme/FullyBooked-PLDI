@@ -8,7 +8,8 @@ import {
   ScrollView,
   SafeAreaView,
   Alert,
-  ActivityIndicator
+  ActivityIndicator,
+  Modal
 } from 'react-native';
 import { COLORS, FONTS, SIZES } from '../constants/theme';
 import AuthGlobal from '../context/store/AuthGlobal';
@@ -17,49 +18,92 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import Button from '../components/Button';
 import Header from '../components/Header';
+import AccountProfile from '../components/Account Components/AccountProfile';
+
+// Default avatar image
+const DEFAULT_AVATAR = 'https://via.placeholder.com/150';
 
 const AccountScreen = () => {
   const context = useContext(AuthGlobal);
   const navigation = useNavigation();
   const [userData, setUserData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [showProfileEditor, setShowProfileEditor] = useState(false);
 
   useEffect(() => {
     fetchUserData();
   }, []);
 
+  // Refetch user data when coming back from edit mode
+  useEffect(() => {
+    if (!showProfileEditor) {
+      fetchUserData();
+    }
+  }, [showProfileEditor]);
+
   const fetchUserData = async () => {
     try {
       setLoading(true);
-      // In a real app, you would fetch user data from your API
-      // For now, we'll use the data from context and some placeholder data
       
+      // Get user from context - use both user and userProfile fields
       const user = context.stateUser.user;
+      const userProfile = context.stateUser.userProfile;
+      
+      console.log('Context user data:', { user, userProfile });
       
       if (user && user.id) {
+        // Combine data from both user and userProfile if available
         setUserData({
           id: user.id,
-          username: user.username || 'User',
-          email: user.email || 'user@example.com',
-          avatar: user.avatar || 'https://via.placeholder.com/150',
-          phone: user.phone || '',
+          // Try multiple possible paths to get username
+          username: user.username || userProfile?.username || 'Username',
+          email: user.email || userProfile?.email || 'user@example.com',
+          avatar: user.avatar || userProfile?.avatar || DEFAULT_AVATAR,
+          phone: user.phone || userProfile?.phone || '0987654321',
+          role: user.role || 'customer',
           address: {
-            city: user.address?.city || '',
-            country: user.address?.country || '',
-            state: user.address?.state || '',
-            zipcode: user.address?.zipcode || '',
+            city: user.address?.city || userProfile?.address?.city || '',
+            country: user.address?.country || userProfile?.address?.country || '',
+            state: user.address?.state || userProfile?.address?.state || '',
+            zipcode: user.address?.zipcode || userProfile?.address?.zipcode || '',
           }
         });
       } else {
         // If no user data found in context, check AsyncStorage
         const token = await AsyncStorage.getItem('jwt');
         if (token) {
-          // Placeholder user data if token exists but no user in context
-          setUserData({
-            username: 'FullyBooked User',
-            email: 'user@fullybooked.com',
-            avatar: 'https://via.placeholder.com/150',
-          });
+          // Try to get userData from AsyncStorage
+          try {
+            const storedUserData = await AsyncStorage.getItem('userData');
+            const parsedUserData = storedUserData ? JSON.parse(storedUserData) : null;
+            
+            if (parsedUserData) {
+              setUserData({
+                username: parsedUserData.username || 'FullyBooked User',
+                email: parsedUserData.email || 'user@fullybooked.com',
+                avatar: parsedUserData.avatar || DEFAULT_AVATAR,
+                role: parsedUserData.role || 'customer',
+                address: parsedUserData.address || { city: '', country: '', state: '', zipcode: '' },
+              });
+            } else {
+              // Fallback to placeholder data
+              setUserData({
+                username: 'FullyBooked User',
+                email: 'user@fullybooked.com',
+                avatar: DEFAULT_AVATAR,
+                role: 'customer',
+              });
+            }
+          } catch (parseError) {
+            console.error('Error parsing stored user data:', parseError);
+            // Fallback to placeholder data
+            setUserData({
+              username: 'FullyBooked User',
+              email: 'user@fullybooked.com',
+              avatar: DEFAULT_AVATAR,
+              role: 'customer',
+            });
+          }
         } else {
           // No authenticated user
           setUserData(null);
@@ -89,9 +133,8 @@ const AccountScreen = () => {
     );
   };
 
-  const navigateToEditProfile = () => {
-    // This would navigate to an EditProfile screen in a real app
-    Alert.alert('Coming Soon', 'Profile editing will be available in the next update.');
+  const toggleProfileEditor = () => {
+    setShowProfileEditor(!showProfileEditor);
   };
 
   const navigateToOrderHistory = () => {
@@ -118,25 +161,33 @@ const AccountScreen = () => {
       
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.profileSection}>
-          <Image 
-            source={{ uri: userData?.avatar || 'https://via.placeholder.com/150' }} 
-            style={styles.profileImage} 
-          />
-          <Text style={styles.username}>{userData?.username || 'Guest User'}</Text>
-          <Text style={styles.email}>{userData?.email || 'Sign in to view your profile'}</Text>
-          
-          {userData ? (
-            <Button
-              title="Edit Profile"
-              onPress={navigateToEditProfile}
-              style={styles.editButton}
-              variant="outline"
+          <View style={styles.profileLayout}>
+            <Image 
+              source={{ uri: userData?.avatar || DEFAULT_AVATAR }} 
+              style={styles.profileImage} 
             />
-          ) : (
+            <View style={styles.userInfoContainer}>
+              <Text style={styles.username}>{userData?.username || 'Guest User'}</Text>
+              <Text style={styles.email}>{userData?.email || 'Sign in to view your profile'}</Text>
+              {userData?.role && (
+                <View style={styles.roleContainer}>
+                  <Text style={styles.roleLabel}>Role: </Text>
+                  <Text style={styles.roleValue}>{userData.role.charAt(0).toUpperCase() + userData.role.slice(1)}</Text>
+                </View>
+              )}
+              {userData && (
+                <TouchableOpacity onPress={toggleProfileEditor} style={styles.editProfileLink}>
+                  <Text style={styles.editProfileText}>Edit Profile</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
+          
+          {!userData && (
             <Button
               title="Sign In"
               onPress={() => navigation.navigate('Login')}
-              style={styles.editButton}
+              style={styles.signInButton}
             />
           )}
         </View>
@@ -173,6 +224,18 @@ const AccountScreen = () => {
           <Text style={styles.appVersion}>FullyBooked v1.0.0</Text>
         </View>
       </ScrollView>
+
+      {/* Profile Editor Modal */}
+      <Modal 
+        visible={showProfileEditor} 
+        animationType="slide"
+        onRequestClose={toggleProfileEditor}
+      >
+        <SafeAreaView style={styles.modalContainer}>
+          <Header title="Edit Profile" showBackButton={true} onBackPress={toggleProfileEditor} />
+          <AccountProfile onComplete={toggleProfileEditor} />
+        </SafeAreaView>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -191,17 +254,25 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   profileSection: {
-    alignItems: 'center',
     padding: SIZES.large,
     backgroundColor: '#fff',
     borderBottomWidth: 1,
     borderBottomColor: '#e0e0e0',
   },
-  profileImage: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
+  profileLayout: {
+    flexDirection: 'row',
+    alignItems: 'center',
     marginBottom: SIZES.medium,
+  },
+  profileImage: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    marginRight: SIZES.medium,
+  },
+  userInfoContainer: {
+    flex: 1,
+    justifyContent: 'center',
   },
   username: {
     ...FONTS.bold,
@@ -212,10 +283,33 @@ const styles = StyleSheet.create({
     ...FONTS.regular,
     fontSize: SIZES.medium,
     color: COLORS.onBackground,
-    marginBottom: SIZES.medium,
+    marginBottom: SIZES.small / 2,
   },
-  editButton: {
-    width: 150,
+  roleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  roleLabel: {
+    ...FONTS.medium,
+    fontSize: SIZES.small,
+    color: COLORS.onBackground,
+  },
+  roleValue: {
+    ...FONTS.semiBold,
+    fontSize: SIZES.small,
+    color: COLORS.primary,
+  },
+  editProfileLink: {
+    marginTop: SIZES.small,
+  },
+  editProfileText: {
+    ...FONTS.medium,
+    fontSize: SIZES.medium,
+    color: COLORS.primary,
+  },
+  signInButton: {
+    marginTop: SIZES.small,
+    alignSelf: 'flex-end',
   },
   menuSection: {
     marginTop: SIZES.medium,
@@ -260,6 +354,10 @@ const styles = StyleSheet.create({
     fontSize: SIZES.small,
     color: COLORS.onBackground,
     opacity: 0.6,
+  },
+  modalContainer: {
+    flex: 1,
+    backgroundColor: COLORS.background,
   },
 });
 

@@ -157,3 +157,156 @@ export const setCurrentUser = (decoded, user) => {
         userProfile: user
     }
 }
+
+// Test function to check API connectivity
+export const testProfileUpdate = async () => {
+    try {
+        console.log('Testing profile update API connectivity...');
+        
+        // Build test URL using the same baseURL
+        const testUrl = baseURL.endsWith('/') 
+            ? `${baseURL}users/profile-test` 
+            : `${baseURL}/users/profile-test`;
+        
+        console.log('Making test API call to:', testUrl);
+        
+        const response = await fetch(testUrl, {
+            method: "GET",
+            headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        console.log('Test response status:', response.status);
+        
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('Test error response:', errorText);
+            return { success: false, error: 'API test failed' };
+        }
+        
+        const data = await response.json();
+        console.log('Test API response:', data);
+        
+        return { success: true, data };
+    } catch (error) {
+        console.error("Test API error:", error);
+        return { success: false, error };
+    }
+};
+
+export const updateUserProfile = async (userData, dispatch) => {
+    try {
+        // First test the API connectivity
+        const testResult = await testProfileUpdate();
+        console.log('API test result:', testResult);
+        
+        // Get the JWT token from AsyncStorage
+        const token = await AsyncStorage.getItem("jwt");
+        if (!token) {
+            throw new Error("Authentication token not found");
+        }
+        
+        console.log('JWT token found:', token.substring(0, 10) + '...');
+        console.log('Updating user profile with data:', userData);
+        
+        // Use the new profile update endpoint
+        const updateUrl = baseURL.endsWith('/') 
+            ? `${baseURL}users/profile/update` 
+            : `${baseURL}/users/profile/update`;
+        
+        console.log('Making API call to:', updateUrl);
+        console.log('BaseURL:', baseURL);
+        
+        // Create a copy of userData that's safe to send to server
+        const userDataToSend = {
+            username: userData.username,
+            email: userData.email,
+            phone: userData.phone || '',
+            avatar: userData.avatar || '',
+            address: {
+                city: userData.address?.city || '',
+                country: userData.address?.country || '',
+                state: userData.address?.state || '',
+                zipcode: userData.address?.zipcode || '',
+            }
+        };
+        
+        console.log('Sending data:', JSON.stringify(userDataToSend));
+        console.log('Headers:', {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token.substring(0, 10)}...`
+        });
+        
+        // If we have a new avatar that's a local URI, we should handle image upload separately
+        // For now we'll keep the old avatar if it's a URL or skip if it's a local file path
+        if (userData.avatar && !userData.avatar.startsWith('http')) {
+            console.log('Skipping local avatar upload for now');
+        }
+        
+        const response = await fetch(updateUrl, {
+            method: "PUT",
+            body: JSON.stringify(userDataToSend),
+            headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            }
+        });
+        
+        console.log('Response status:', response.status);
+        
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('Response error text:', errorText);
+            
+            try {
+                const errorData = JSON.parse(errorText);
+                console.error('API error response:', errorData);
+                throw new Error(errorData.message || 'Failed to update profile');
+            } catch (parseError) {
+                console.error('Error parsing error response:', parseError);
+                throw new Error(`Server error: ${response.status} ${errorText}`);
+            }
+        }
+        
+        const data = await response.json();
+        console.log('Profile update API response:', data);
+        
+        // Update the userData in AsyncStorage
+        await AsyncStorage.setItem("userData", JSON.stringify({
+            ...userData,
+            ...data.user // Replace with server data if available
+        }));
+        
+        // Get the current decoded token
+        const currentToken = jwtDecode(token);
+        
+        // Update the context with the new user data
+        dispatch(setCurrentUser(currentToken, userData));
+        
+        Toast.show({
+            type: "success",
+            text1: "Profile Updated",
+            text2: "Your profile has been updated successfully!",
+            visibilityTime: 3000,
+            topOffset: 60,
+        });
+        
+        return { success: true };
+    } catch (error) {
+        console.error("Error updating user profile:", error);
+        
+        Toast.show({
+            type: "error",
+            text1: "Update Failed",
+            text2: error.message || "Failed to update profile. Please try again.",
+            visibilityTime: 3000,
+            topOffset: 60,
+        });
+        
+        return { success: false, error };
+    }
+};
