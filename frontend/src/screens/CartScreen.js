@@ -14,16 +14,18 @@ import { COLORS, FONTS, SIZES } from '../constants/theme';
 import Button from '../components/Button';
 import Header from '../components/Header';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import axios from 'axios';
 
 const CartScreen = ({ navigation }) => {
   const [cartItems, setCartItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [totalAmount, setTotalAmount] = useState(0);
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
 
+  // Load cart items when screen is focused
   useEffect(() => {
     loadCartItems();
-    
-    // Refresh cart when screen is focused
+
     const unsubscribe = navigation.addListener('focus', () => {
       loadCartItems();
     });
@@ -31,21 +33,36 @@ const CartScreen = ({ navigation }) => {
     return unsubscribe;
   }, [navigation]);
 
+  // Calculate total amount whenever cart items change
+  useEffect(() => {
+    const total = cartItems.reduce((sum, item) => {
+      const itemPrice = item.discountPrice || item.price;
+      return sum + (itemPrice * item.quantity);
+    }, 0);
+    
+    setTotalAmount(total);
+  }, [cartItems]);
+
+  // Load cart items from AsyncStorage
   const loadCartItems = async () => {
     try {
       setLoading(true);
       const cartData = await AsyncStorage.getItem('cart');
-      let parsedCart = cartData ? JSON.parse(cartData) : [];
-      
-      setCartItems(parsedCart);
-      
-      // Calculate total
-      const total = parsedCart.reduce((sum, item) => {
-        const itemPrice = item.discountPrice || item.price;
-        return sum + (itemPrice * item.quantity);
-      }, 0);
-      
-      setTotalAmount(total);
+      const parsedCart = cartData ? JSON.parse(cartData) : [];
+
+      // Debugging: Log cart items to check for missing _id
+      console.log('Loaded Cart Items:', parsedCart);
+
+      // Validate cart items to ensure all have _id
+      const validatedCart = parsedCart.map((item, index) => {
+        if (!item._id) {
+          console.warn(`Item at index ${index} is missing _id.`, item);
+          return { ...item, _id: `temp-id-${index}` }; // Assign a temporary ID
+        }
+        return item;
+      });
+
+      setCartItems(validatedCart);
     } catch (error) {
       console.error('Error loading cart items:', error);
       Alert.alert('Error', 'Failed to load cart items');
@@ -54,54 +71,47 @@ const CartScreen = ({ navigation }) => {
     }
   };
 
+  // Update quantity of an item
   const updateQuantity = async (itemId, action) => {
     try {
-      const updatedCart = cartItems.map(item => {
+      console.log(`Updating quantity for item: ${itemId}, Action: ${action}`);
+      
+      const updatedCart = cartItems.map((item) => {
         if (item._id === itemId) {
-          if (action === 'increase') {
-            return { ...item, quantity: item.quantity + 1 };
-          } else if (action === 'decrease' && item.quantity > 1) {
-            return { ...item, quantity: item.quantity - 1 };
-          }
+          const newQuantity = action === 'increase' ? item.quantity + 1 : item.quantity - 1;
+          return { ...item, quantity: Math.max(newQuantity, 1) }; // Ensure quantity is at least 1
         }
         return item;
       });
-      
+
+      console.log('Updated Cart:', updatedCart);
+
       setCartItems(updatedCart);
       await AsyncStorage.setItem('cart', JSON.stringify(updatedCart));
-      
-      // Recalculate total
-      const total = updatedCart.reduce((sum, item) => {
-        const itemPrice = item.discountPrice || item.price;
-        return sum + (itemPrice * item.quantity);
-      }, 0);
-      
-      setTotalAmount(total);
     } catch (error) {
       console.error('Error updating quantity:', error);
       Alert.alert('Error', 'Failed to update quantity');
     }
   };
 
+  // Remove an item from cart
   const removeItem = async (itemId) => {
     try {
-      const updatedCart = cartItems.filter(item => item._id !== itemId);
+      console.log(`Removing item: ${itemId}`);
+      
+      const updatedCart = cartItems.filter((item) => item._id !== itemId);
+
+      console.log('Updated Cart After Removal:', updatedCart);
+
       setCartItems(updatedCart);
       await AsyncStorage.setItem('cart', JSON.stringify(updatedCart));
-      
-      // Recalculate total
-      const total = updatedCart.reduce((sum, item) => {
-        const itemPrice = item.discountPrice || item.price;
-        return sum + (itemPrice * item.quantity);
-      }, 0);
-      
-      setTotalAmount(total);
     } catch (error) {
       console.error('Error removing item:', error);
       Alert.alert('Error', 'Failed to remove item');
     }
   };
 
+  // Clear all items from cart
   const clearCart = async () => {
     try {
       await AsyncStorage.removeItem('cart');
@@ -114,16 +124,46 @@ const CartScreen = ({ navigation }) => {
     }
   };
 
-  const handleCheckout = () => {
+  // Handle checkout
+  const handleCheckout = async () => {
     if (cartItems.length === 0) {
       Alert.alert('Empty Cart', 'Please add items to your cart before checking out');
       return;
     }
-    
-    // Navigate to checkout screen
-    navigation.navigate('Checkout', { cartItems, totalAmount });
+
+    try {
+      setCheckoutLoading(true);
+
+      const orderData = {
+        items: cartItems.map((item) => ({
+          book: item._id,
+          quantity: item.quantity,
+        })),
+        totalAmount,
+      };
+
+      console.log('Order Data:', orderData);
+
+      const response = await axios.post('http://192.168.112.70:3000/api/orders', orderData);
+
+      console.log('Response:', response.data);
+
+      if (response.status === 201) {
+        await AsyncStorage.removeItem('cart');
+        setCartItems([]);
+
+        Alert.alert('Success', 'Order placed successfully');
+        navigation.navigate('OrderDetails', { orderId: response.data.order._id });
+      }
+    } catch (error) {
+      console.error('Error during checkout:', error.response?.data || error.message);
+      Alert.alert('Error', 'Failed to place order. Please try again.');
+    } finally {
+      setCheckoutLoading(false);
+    }
   };
 
+  // Render a single cart item
   const renderCartItem = ({ item }) => (
     <View style={styles.cartItem}>
       <Image 
@@ -167,10 +207,9 @@ const CartScreen = ({ navigation }) => {
     </View>
   );
 
-  // Header right component for clear cart button
   const ClearCartButton = () => {
     if (cartItems.length === 0) return null;
-    
+
     return (
       <TouchableOpacity 
         onPress={() => Alert.alert(
@@ -213,7 +252,7 @@ const CartScreen = ({ navigation }) => {
           <FlatList
             data={cartItems}
             renderItem={renderCartItem}
-            keyExtractor={(item) => item._id}
+            keyExtractor={(item) => item._id.toString()} // Ensure unique key for each item
             contentContainerStyle={styles.listContainer}
             showsVerticalScrollIndicator={false}
           />
@@ -224,9 +263,10 @@ const CartScreen = ({ navigation }) => {
               <Text style={styles.totalAmount}>${totalAmount.toFixed(2)}</Text>
             </View>
             <Button 
-              title="Proceed to Checkout" 
+              title={checkoutLoading ? 'Processing...' : 'Proceed to Checkout'} 
               onPress={handleCheckout}
               style={styles.checkoutButton}
+              disabled={checkoutLoading}
             />
           </View>
         </>

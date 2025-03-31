@@ -4,49 +4,47 @@ const Book = require('../models/Book'); // Assuming you have a Book model
 // Add to OrderList (Cart)
 exports.addToOrderList = async (req, res) => {
   try {
-    const { book_id, quantity } = req.body;
+    const { product_id, quantity } = req.body;
     const user_id = req.user._id; // Get user ID from authenticated request
 
-    // Validate input
-    if (!book_id || !quantity || quantity <= 0) {
-      return res.status(400).json({ message: 'Book ID and valid quantity are required.' });
+    if (!product_id || !quantity) {
+      return res.status(400).json({ message: 'Product ID and Quantity are required.' });
     }
 
-    // Check if the book exists
-    const book = await Book.findById(book_id);
-    if (!book) {
-      return res.status(404).json({ message: 'Book not found.' });
+    // Verify product existence
+    const product = await Product.findById(product_id);
+    if (!product) {
+      return res.status(404).json({ message: 'Product not found.' });
     }
 
-    // Check if the book is already in the user's order list
-    const existingOrderListItem = await OrderList.findOne({ product: book_id, user: user_id });
+    // Check if the product already exists in the user's order list
+    const existingOrder = await OrderList.findOne({ product_id, user_id });
 
-    if (existingOrderListItem) {
-      // Update the quantity if the book already exists in the order list
-      existingOrderListItem.quantity += quantity;
-      await existingOrderListItem.save();
+    if (existingOrder) {
+      existingOrder.quantity += quantity;
+      await existingOrder.save();
       return res.status(200).json({
         message: 'Order list updated successfully.',
-        orderList: existingOrderListItem,
+        order: existingOrder
       });
     }
 
-    // Add a new book to the order list
-    const newOrderListItem = new OrderList({
-      user: user_id,
-      product: book_id,
-      quantity,
+    // Create new order
+    const newOrder = new OrderList({
+      product_id,
+      user_id,
+      quantity
     });
 
-    await newOrderListItem.save();
+    await newOrder.save();
 
     res.status(201).json({
-      message: 'Book added to order list successfully.',
-      orderList: newOrderListItem,
+      message: 'Product added to order list successfully.',
+      order: newOrder
     });
   } catch (error) {
     console.error('Error adding to order list:', error);
-    res.status(500).json({ message: 'Failed to add book to order list.' });
+    res.status(500).json({ message: 'Failed to add product to order list.' });
   }
 };
 

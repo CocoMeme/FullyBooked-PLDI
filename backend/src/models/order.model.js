@@ -1,56 +1,43 @@
 const mongoose = require('mongoose');
 
 // Define the schema for the Order model
-const orderSchema = new mongoose.Schema({
-    name: {
-        type: String,
+const orderSchema = new mongoose.Schema(
+    {
+      user: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
         required: true,
-    },
-    email: {
-        type: String,
-        required: true,
-    },
-    address: {
-        city: {
-            type: String,
-            required: true,
-        },
-        country: String,
-        state: String,
-        zipcode: String,
-    },
-    phone: {
-        type: Number,
-        required: true,
-    },
-    productIds: [
+      },
+      items: [
         {
+          book: {
             type: mongoose.Schema.Types.ObjectId,
             ref: 'Book',
             required: true,
-        }
-    ],
-    totalPrice: {
+          },
+          quantity: {
+            type: Number,
+            required: true,
+          },
+        },
+      ],
+      totalAmount: {
         type: Number,
         required: true,
-    },
-    status: {
+      },
+      status: {
         type: String,
-        enum: ['Pending', 'Processing', 'Shipping', 'Delivered'],
-        default: 'Pending',  // Orders start with 'Pending' status
-        required: true,
+        enum: ['Pending', 'Completed', 'Cancelled'],
+        default: 'Pending',
+      },
+      notificationSent: {
+        type: Boolean,
+        default: false,
+      },
     },
-    courier: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'User',  // Assuming a "User" model for couriers
-        default: null,  // Initially, no courier is assigned
-    },
-    deliveredAt: {
-        type: Date,  // Timestamp for when the order is delivered
-        default: null,
-    },
-}, { timestamps: true });
-
+    { timestamps: true }
+  );
+  
 // Middleware to handle status updates
 orderSchema.pre('save', function(next) {
     // If order is delivered, set deliveredAt timestamp
