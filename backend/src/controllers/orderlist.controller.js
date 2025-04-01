@@ -1,5 +1,5 @@
 const OrderList = require('../models/orderlist.model');
-const Book = require('../models/Book'); // Assuming you have a Book model
+const Book = require('../models/book.model'); // Assuming you have a Book model
 
 // Add to OrderList (Cart)
 exports.addToOrderList = async (req, res) => {

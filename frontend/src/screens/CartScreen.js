@@ -134,17 +134,24 @@ const CartScreen = ({ navigation }) => {
     try {
       setCheckoutLoading(true);
 
+      const userId = await AsyncStorage.getItem('userId'); // Assuming userId is stored in AsyncStorage
+      if (!userId) {
+        Alert.alert('Error', 'User not logged in.');
+        return;
+      }
+
       const orderData = {
-        items: cartItems.map((item) => ({
-          book: item._id,
+        userId,
+        products: cartItems.map((item) => ({
+          bookId: item._id,
           quantity: item.quantity,
         })),
-        totalAmount,
+        paymentMethod: 'COD', // Example: Cash on Delivery
       };
 
       console.log('Order Data:', orderData);
 
-      const response = await axios.post('http://192.168.112.70:3000/api/orders', orderData);
+      const response = await axios.post('http://192.168.112.70:3000/api/orders/place', orderData);
 
       console.log('Response:', response.data);
 
