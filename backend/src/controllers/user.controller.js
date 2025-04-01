@@ -164,11 +164,15 @@ exports.loginAdmin = async (req, res) => {
 
 exports.getAllUsers = async (req, res) => {
     try {
-        const users = await User.find().sort({ createdAt: -1 });
-        res.status(200).send(users);
+        // Fetch all users, excluding the password field
+        const users = await User.find()
+            .select('-password') // Exclude the password field
+            .sort({ createdAt: -1 }); // Sort by creation date (newest first)
+
+        res.status(200).json(users); // Send the users as a JSON response
     } catch (error) {
-        console.error("Error: Fetching Users", error);
-        res.status(500).send({ message: "Failed to fetch users!" });
+        console.error("Error fetching users:", error);
+        res.status(500).json({ message: "Failed to fetch users!" });
     }
 };
 

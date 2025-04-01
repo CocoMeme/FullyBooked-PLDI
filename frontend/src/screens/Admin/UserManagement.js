@@ -14,6 +14,7 @@ import axios from 'axios';
 import Header from '../../components/Header';
 import { COLORS, FONTS, SIZES } from '../../constants/theme';
 import API_URL from '../../services/api';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const UserManagement = ({ navigation }) => {
   const [users, setUsers] = useState([]);
@@ -26,44 +27,23 @@ const UserManagement = ({ navigation }) => {
   const fetchUsers = async () => {
     try {
       setLoading(true);
-      // This would be replaced with an actual API call in production
-      // const response = await axios.get(API_URL.GET_ALL_USERS);
-      
-      const dummyUsers = [
-        {
-          _id: '1',
-          username: 'johndoe',
-          email: 'john@example.com',
-          role: 'customer',
-          createdAt: '2025-01-15T08:30:00.000Z'
+  
+      const token = await AsyncStorage.getItem('jwt'); // Retrieve the token
+      if (!token) {
+        throw new Error('JWT token not found');
+      }
+  
+      // Replace API_URL with the localhost URL
+      const response = await axios.get('http://192.168.112.70:3000/api/users', {
+        headers: {
+          Authorization: `Bearer ${token}`, // Include the JWT token
         },
-        {
-          _id: '2',
-          username: 'janedoe',
-          email: 'jane@example.com',
-          role: 'customer',
-          createdAt: '2025-02-05T10:15:00.000Z'
-        },
-        {
-          _id: '3',
-          username: 'admin',
-          email: 'admin@fullybooked.com',
-          role: 'admin',
-          createdAt: '2024-12-01T14:20:00.000Z'
-        },
-        {
-          _id: '4',
-          username: 'testuser',
-          email: 'test@example.com',
-          role: 'customer',
-          createdAt: '2025-03-10T16:45:00.000Z'
-        },
-      ];
-      
-      setUsers(dummyUsers);
+      });
+  
+      setUsers(response.data); // Set the fetched users
     } catch (error) {
-      console.error('Error fetching users:', error);
-      Alert.alert('Error', 'Failed to load users');
+      console.error('Error fetching users:', error.response?.data || error.message);
+      Alert.alert('Error', error.response?.data?.message || 'Failed to load users');
     } finally {
       setLoading(false);
     }
