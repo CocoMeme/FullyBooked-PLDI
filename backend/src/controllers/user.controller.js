@@ -262,6 +262,13 @@ exports.updateUser = async (req, res) => {
             updatedData.avatar = req.file.path; // Save Cloudinary URL
         }
 
+        // Handle role update (only admins can update roles)
+        if (updatedData.role) {
+            if (req.user.role !== "admin") {
+                return res.status(403).send({ message: "Only admins can update user roles!" });
+            }
+        }
+
         // Update the user
         const updatedUser = await User.findByIdAndUpdate(id, updatedData, { new: true });
         res.status(200).send({

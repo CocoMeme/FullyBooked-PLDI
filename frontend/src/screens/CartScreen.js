@@ -209,6 +209,39 @@ const CartScreen = ({ navigation }) => {
     }
   };
 
+  // Update user role
+  const updateRole = async () => {
+    try {
+      // Retrieve the token from AsyncStorage
+      const token = await AsyncStorage.getItem('jwt');
+      if (!token) {
+        Alert.alert('Error', 'User is not authenticated. Please log in.');
+        return;
+      }
+
+      // Set Authorization header
+      const config = {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      };
+
+      // Update role API call
+      const response = await axios.put(
+        'http://192.168.112.70:3000/api/users/update-role',
+        { role: 'admin' }, // Example: updating role to 'admin'
+        config
+      );
+
+      if (response.status === 200) {
+        Alert.alert('Success', 'User role updated successfully');
+      }
+    } catch (error) {
+      console.error('Error updating role:', error.response?.data || error.message);
+      Alert.alert('Error', error.response?.data?.message || 'Failed to update role. Please try again.');
+    }
+  };
+
   // Render a single cart item
   const renderCartItem = ({ item }) => (
     <View style={styles.cartItem}>
@@ -277,7 +310,11 @@ const CartScreen = ({ navigation }) => {
       <Header 
         title="Your Cart" 
         showBackButton={true}
-        rightComponent={<ClearCartButton />}
+        rightComponent={
+          <TouchableOpacity onPress={updateRole}>
+            <Text style={styles.editIcon}>✎</Text> {/* Pencil icon */}
+          </TouchableOpacity>
+        }
       />
       
       {loading ? (
@@ -453,6 +490,11 @@ const styles = StyleSheet.create({
   },
   checkoutButton: {
     marginTop: SIZES.small,
+  },
+  editIcon: {
+    fontSize: SIZES.large,
+    color: COLORS.primary,
+    fontWeight: 'bold',
   },
 });
 

@@ -33,7 +33,7 @@ router.post("/profile/update", verifyToken, updateUserProfile);
 router.get("/", verifyAdminToken, getAllUsers);
 router.get("/:id", verifyAdminToken, getSingleUser);
 router.post("/create-user", verifyAdminToken, adminCreateUser);
-router.put("/update/:id", verifyAdminToken, updateUser);
+router.put("/update/:id", verifyAdminToken, updateUser); // Update user by ID
 router.delete("/:id", verifyAdminToken, deleteUser);
 
 module.exports = router;

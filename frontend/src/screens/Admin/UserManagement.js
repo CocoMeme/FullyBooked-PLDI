@@ -3,22 +3,27 @@ import {
   View, 
   Text, 
   StyleSheet, 
-  ActivityIndicator, 
   Alert, 
   TouchableOpacity,
   FlatList,
-  Platform
+  Platform,
+  Modal,
+  Button,
+  ActivityIndicator
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import axios from 'axios';
 import Header from '../../components/Header';
 import { COLORS, FONTS, SIZES } from '../../constants/theme';
-import API_URL from '../../services/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Picker } from '@react-native-picker/picker';
 
-const UserManagement = ({ navigation }) => {
+const UserManagement = () => {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [selectedUser, setSelectedUser] = useState(null);
+  const [updatedRole, setUpdatedRole] = useState('');
 
   useEffect(() => {
     fetchUsers();
@@ -27,20 +32,14 @@ const UserManagement = ({ navigation }) => {
   const fetchUsers = async () => {
     try {
       setLoading(true);
-  
-      const token = await AsyncStorage.getItem('jwt'); // Retrieve the token
-      if (!token) {
-        throw new Error('JWT token not found');
-      }
-  
-      // Replace API_URL with the localhost URL
+      const token = await AsyncStorage.getItem('jwt');
+      if (!token) throw new Error('JWT token not found');
+
       const response = await axios.get('http://192.168.112.70:3000/api/users', {
-        headers: {
-          Authorization: `Bearer ${token}`, // Include the JWT token
-        },
+        headers: { Authorization: `Bearer ${token}` },
       });
-  
-      setUsers(response.data); // Set the fetched users
+
+      setUsers(response.data);
     } catch (error) {
       console.error('Error fetching users:', error.response?.data || error.message);
       Alert.alert('Error', error.response?.data?.message || 'Failed to load users');
@@ -54,19 +53,19 @@ const UserManagement = ({ navigation }) => {
       'Delete User',
       'Are you sure you want to delete this user?',
       [
-        { 
-          text: 'Cancel', 
-          style: 'cancel' 
-        },
+        { text: 'Cancel', style: 'cancel' },
         { 
           text: 'Delete', 
           style: 'destructive',
           onPress: async () => {
             try {
-              // In a real app, you would call the API to delete the user
-              // await axios.delete(API_URL.DELETE_USER(userId));
-              
-              // For now, we'll just remove it from the local state
+              const token = await AsyncStorage.getItem('jwt');
+              if (!token) throw new Error('JWT token not found');
+
+              await axios.delete(`http://192.168.112.70:3000/api/users/${userId}`, {
+                headers: { Authorization: `Bearer ${token}` },
+              });
+
               setUsers(users.filter(user => user._id !== userId));
               Alert.alert('Success', 'User deleted successfully');
             } catch (error) {
@@ -77,6 +76,35 @@ const UserManagement = ({ navigation }) => {
         },
       ]
     );
+  };
+
+  const handleUpdateUserRole = async () => {
+    if (!selectedUser) return;
+
+    try {
+      const token = await AsyncStorage.getItem('jwt');
+      if (!token) throw new Error('JWT token not found');
+
+      const response = await axios.put(
+        `http://192.168.112.70:3000/api/users/update/${selectedUser._id}`,
+        { role: updatedRole },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      const updatedUser = response.data.user;
+      setUsers(users.map(user => (user._id === updatedUser._id ? updatedUser : user)));
+      Alert.alert('Success', 'User role updated successfully');
+      setModalVisible(false);
+    } catch (error) {
+      console.error('Error updating user role:', error.response?.data || error.message);
+      Alert.alert('Error', error.response?.data?.message || 'Failed to update user role');
+    }
+  };
+
+  const openUpdateModal = (user) => {
+    setSelectedUser(user);
+    setUpdatedRole(user.role);
+    setModalVisible(true);
   };
 
   const renderUserItem = ({ item }) => (
@@ -102,7 +130,7 @@ const UserManagement = ({ navigation }) => {
       <View style={styles.actions}>
         <TouchableOpacity 
           style={[styles.actionButton, styles.editButton]}
-          onPress={() => Alert.alert('Info', 'Edit user feature coming soon')}
+          onPress={() => openUpdateModal(item)}
         >
           <Ionicons name="create-outline" size={18} color="#fff" />
         </TouchableOpacity>
@@ -147,6 +175,32 @@ const UserManagement = ({ navigation }) => {
           )}
         />
       )}
+
+      <Modal
+        visible={modalVisible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Update User Role</Text>
+            <Picker
+              selectedValue={updatedRole}
+              onValueChange={(itemValue) => setUpdatedRole(itemValue)}
+              style={styles.picker}
+            >
+              <Picker.Item label="Admin" value="admin" />
+              <Picker.Item label="Customer" value="customer" />
+              <Picker.Item label="Courier" value="courier" />
+            </Picker>
+            <View style={styles.modalActions}>
+              <Button title="Cancel" onPress={() => setModalVisible(false)} />
+              <Button title="Update" onPress={handleUpdateUserRole} />
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -250,6 +304,33 @@ const styles = StyleSheet.create({
     fontSize: SIZES.medium,
     color: COLORS.onBackground,
     opacity: 0.6,
+  },
+  modalContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  modalContent: {
+    width: '80%',
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    padding: 16,
+    alignItems: 'center',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 16,
+  },
+  picker: {
+    width: '100%',
+    marginBottom: 16,
+  },
+  modalActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
   },
 });
 
