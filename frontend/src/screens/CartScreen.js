@@ -134,41 +134,47 @@ const CartScreen = ({ navigation }) => {
     try {
       setCheckoutLoading(true);
 
-      const userId = await AsyncStorage.getItem('userId'); // Assuming userId is stored in AsyncStorage
+      const userId = await AsyncStorage.getItem('userId');
+      console.log('Retrieved userId:', userId);
+  
       if (!userId) {
-        Alert.alert('Error', 'User not logged in.');
+        Alert.alert('Error', 'User not logged in. Please log in to proceed.');
+        setCheckoutLoading(false);
         return;
       }
 
-      const orderData = {
-        userId,
-        products: cartItems.map((item) => ({
-          bookId: item._id,
-          quantity: item.quantity,
-        })),
-        paymentMethod: 'COD', // Example: Cash on Delivery
-      };
+       const orderData = {
+      userId, // Ensure userId is included
+      products: cartItems.map((item) => ({
+        productId: item._id, // Ensure this matches your backend's expected field name
+        quantity: item.quantity,
+      })),
+      paymentMethod: 'COD', // Example: Cash on Delivery
+    };
 
-      console.log('Order Data:', orderData);
+    console.log('Order Data:', orderData);
 
-      const response = await axios.post('http://192.168.112.70:3000/api/orders/place', orderData);
 
-      console.log('Response:', response.data);
+         // Send order data to the backend
+    const response = await axios.post('http://192.168.112.70:3000/api/orders/place', orderData);
 
-      if (response.status === 201) {
-        await AsyncStorage.removeItem('cart');
-        setCartItems([]);
+    console.log('Response:', response.data);
 
-        Alert.alert('Success', 'Order placed successfully');
-        navigation.navigate('OrderDetails', { orderId: response.data.order._id });
-      }
-    } catch (error) {
-      console.error('Error during checkout:', error.response?.data || error.message);
-      Alert.alert('Error', 'Failed to place order. Please try again.');
-    } finally {
-      setCheckoutLoading(false);
+    if (response.status === 201) {
+      // Clear the cart after successful order placement
+      await AsyncStorage.removeItem('cart');
+      setCartItems([]);
+
+      Alert.alert('Success', 'Order placed successfully');
+      navigation.navigate('OrderDetails', { orderId: response.data.order._id });
     }
-  };
+  } catch (error) {
+    console.error('Error during checkout:', error.response?.data || error.message);
+    Alert.alert('Error', error.response?.data?.message || 'Failed to place order. Please try again.');
+  } finally {
+    setCheckoutLoading(false);
+  }
+};
 
   // Render a single cart item
   const renderCartItem = ({ item }) => (
