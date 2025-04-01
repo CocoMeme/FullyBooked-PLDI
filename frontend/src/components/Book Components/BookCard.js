@@ -16,23 +16,30 @@ const BookCard = ({ book, navigation, showAddToCart = true }) => {
 
   // Render rating stars
   const renderRatingStars = (rating) => {
-    if (!rating) return null;
-    
-    const fullStars = Math.floor(rating);
-    const halfStar = rating % 1 >= 0.5;
     const stars = [];
+    const displayRating = rating || 0;
+    const fullStars = Math.floor(displayRating);
+    const halfStar = displayRating % 1 >= 0.5;
+    const emptyStars = 5 - fullStars - (halfStar ? 1 : 0);
 
+    // Add full stars
     for (let i = 0; i < fullStars; i++) {
       stars.push('★');
     }
     
+    // Add half star if needed
     if (halfStar) {
       stars.push('☆');
     }
 
+    // Add empty stars
+    for (let i = 0; i < emptyStars; i++) {
+      stars.push('·');
+    }
+
     return (
       <Text style={styles.ratingText}>
-        {stars.join('')} ({rating})
+        {stars.join('')} ({displayRating.toFixed(1)})
       </Text>
     );
   };
@@ -97,7 +104,7 @@ const styles = StyleSheet.create({
     marginBottom: SIZES.small,
   },
   bookCard: {
-    backgroundColor: '#ffe',
+    backgroundColor: '#fff',
     borderRadius: SIZES.medium,
   },
   bookCover: {
