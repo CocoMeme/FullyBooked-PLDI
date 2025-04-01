@@ -91,13 +91,14 @@ const ProductManagement = ({ route, navigation }) => {
         return;
       }
 
-      // Launch image library
+      // Launch image library with more flexible options
       console.log('Launching image library...');
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images, // Updated to use MediaTypeOptions
-        allowsEditing: true,
-        aspect: [4, 3],
-        quality: 0.8, // Slightly reduced quality to decrease file size
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true, // Keep editing enabled but without a fixed aspect ratio
+        aspect: undefined, // Remove the fixed aspect ratio constraint
+        quality: 0.8,
+        allowsMultipleSelection: false, // Only one image at a time for better control
       });
       
       console.log('Image picker result:', JSON.stringify(result));

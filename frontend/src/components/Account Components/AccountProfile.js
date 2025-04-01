@@ -93,10 +93,12 @@ const AccountProfile = ({ onComplete }) => {
   // Image picker function
   const pickImage = async () => {
     try {
+      await requestMediaLibraryPermission();
+      
       let result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
-        aspect: [1, 1],
+        aspect: undefined, // Remove the fixed aspect ratio constraint
         quality: 0.7,
       });
 
