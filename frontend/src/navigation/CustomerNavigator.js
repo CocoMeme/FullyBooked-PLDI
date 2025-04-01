@@ -11,7 +11,7 @@ import BooksScreen from '../screens/BooksScreen';
 import CartScreen from '../screens/CartScreen';
 import NotificationScreen from '../screens/NotificationScreen';
 import AccountScreen from '../screens/AccountScreen';
-// import EditProfileScreen from '../screens/EditProfileScreen';
+import BookDetails from '../components/Book Components/BookDetails';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -20,14 +20,13 @@ const Stack = createStackNavigator();
 const HomeStack = () => (
   <Stack.Navigator screenOptions={{ headerShown: false }}>
     <Stack.Screen name="HomeScreen" component={HomeScreen} />
-    {/* Add more screens to this stack as needed */}
   </Stack.Navigator>
 );
 
 const BooksStack = () => (
   <Stack.Navigator screenOptions={{ headerShown: false }}>
     <Stack.Screen name="BooksScreen" component={BooksScreen} />
-    {/* Add book details screen here later */}
+    <Stack.Screen name="BookDetails" component={BookDetails} />
   </Stack.Navigator>
 );
 
@@ -96,6 +95,7 @@ const CustomerNavigator = () => {
       />
       <Tab.Screen name="Notifications" component={NotificationStack} 
         options={({ navigation }) => ({
+
           tabBarBadge: 2, // Static badge for demonstration, make it dynamic in real app
         })}
       />
