@@ -11,10 +11,13 @@ const {
     adminCreateUser,
     getFirebaseToken,
     testEndpoint,
-    updateUserProfile
+    updateUserProfile,
+    getCurrentUser
 } = require('../controllers/user.controller');
 const verifyAdminToken = require('../middleware/verifyAdminToken');
-const verifyToken = require('../middleware/verifyToken');
+const verifyTokenAndRole = require('../middleware/verifyToken');
+const { verifyToken } = require('../middleware/verifyToken');
+
 const router = express.Router();
 
 // Public routes
@@ -28,6 +31,7 @@ router.post("/admin", loginAdmin);
 // User-protected routes (requires authentication but not admin)
 router.put("/profile/update", verifyToken, updateUserProfile);
 router.post("/profile/update", verifyToken, updateUserProfile);
+router.get("/me", verifyToken, getCurrentUser);
 
 // Admin-protected routes
 router.get("/", verifyAdminToken, getAllUsers);

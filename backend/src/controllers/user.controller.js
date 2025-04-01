@@ -418,4 +418,31 @@ exports.updateUserProfile = async (req, res) => {
     }
 };
 
+// User "me" endpoint to get current user info
+exports.getCurrentUser = async (req, res) => {
+    try {
+        // The user information is available from the token via req.user
+        // that was attached by the verifyToken middleware
+        const user = req.user;
+        
+        if (!user) {
+            return res.status(404).json({ message: "User not found" });
+        }
+
+        // Return the user information
+        res.status(200).json({
+            id: user._id,
+            username: user.username,
+            email: user.email,
+            role: user.role,
+            phone: user.phone || '',
+            avatar: user.avatar || '',
+            address: user.address || {}
+        });
+    } catch (error) {
+        console.error("Error in getCurrentUser:", error);
+        res.status(500).json({ message: "Failed to fetch user information" });
+    }
+};
+
 

@@ -42,6 +42,10 @@ export const FONTS = {
     fontFamily: 'Poppins-Bold',
     fontWeight: 'bold',
   },
+  extraBold: {
+    fontFamily: 'Poppins-ExtraBold',
+    fontWeight: '800',
+  },
   light: {
     fontFamily: 'Poppins-Light',
     fontWeight: '300',

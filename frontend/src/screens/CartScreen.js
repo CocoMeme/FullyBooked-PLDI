@@ -184,7 +184,7 @@ const CartScreen = ({ navigation }) => {
   const handleCheckout = async () => {
     try {
       setCheckoutLoading(true);
-  
+
       // Retrieve the token from AsyncStorage
       const token = await AsyncStorage.getItem('jwt');
       if (!token) {
@@ -194,17 +194,15 @@ const CartScreen = ({ navigation }) => {
         return;
       }
       console.log('Retrieved token:', token);
-  
+
       // Set Authorization header
       const config = {
         headers: {
           Authorization: `Bearer ${token}`,
         },
       };
-      console.log('Token being sent:',token);
-      console.log('Request headers:', config.headers); // Debug log
-  
-      // Fetch user ID from the server
+      
+      // First, check the user's role
       try {
         const userResponse = await axios.get(
           `${baseURL}users/me`,
@@ -213,57 +211,71 @@ const CartScreen = ({ navigation }) => {
         console.log('User response:', userResponse.data); // Debug log to verify user data
       
         const userId = userResponse.data?.id;
+        const userRole = userResponse.data?.role;
       
         if (!userId) {
           Alert.alert('Error', 'Failed to fetch user information. Please log in to proceed.');
           setCheckoutLoading(false);
           return;
         }
-      } catch (error) {
-        if (error.response?.status === 401) {
-          Alert.alert('Error', 'Session expired. Please log in again.');
-          navigation.navigate('Login');
-        } else if (error.response?.status === 403) {
-          Alert.alert('Error', 'Access denied. You do not have permission to perform this action.');
-        } else {
-          console.error('Error fetching user data:', error);
-          Alert.alert('Error', 'Failed to fetch user information. Please try again.');
+        
+        // Debug user role - this helps troubleshoot permission issues
+        console.log('User role:', userRole);
+        
+        // Check if user role is not customer (case insensitive)
+        if (userRole && userRole.toLowerCase() !== 'customer') {
+          Alert.alert('Access Denied', 'Your account does not have customer privileges. Please contact support.');
+          setCheckoutLoading(false);
+          return;
         }
-        setCheckoutLoading(false);
-        return;
-      }
 
-      const orderData = {
-        userId,
-        products: cartItems.map((item) => ({
-          productId: item._id,
-          quantity: item.quantity,
-          price: item.discountPrice || item.price,
-        })),
-        paymentMethod: 'COD',
-      };
+        const orderData = {
+          userId,
+          products: cartItems.map((item) => ({
+            productId: item._id,
+            quantity: item.quantity,
+            price: item.discountPrice || item.price,
+          })),
+          paymentMethod: 'COD',
+        };
 
-      // Place order
-      const response = await axios.post(
-        `${baseURL}orders/place`,
-        orderData,
-        config
-      );
-      console.log('Order response:', response.data); // Debug log to verify order placement
+        // Place order - FIX: Use the correct endpoint path
+        const response = await axios.post(
+          `${baseURL}orders/place`,
+          orderData,
+          config
+        );
+        console.log('Order response:', response.data); // Debug log to verify order placement
 
-      if (response.status === 201) {
-        // Use Redux action to clear cart after successful order
-        dispatch(clearCartAction());
-        setCartItems([]);
+        if (response.status === 201) {
+          // Use Redux action to clear cart after successful order
+          dispatch(clearCartAction());
+          setCartItems([]);
 
-        Alert.alert('Success', 'Order placed successfully');
-        navigation.navigate('OrderDetails', { orderId: response.data.order._id });
+          Alert.alert('Success', 'Order placed successfully');
+          navigation.navigate('OrderDetails', { orderId: response.data.order._id });
+        }
+      } catch (error) {
+        handleAuthError(error);
       }
     } catch (error) {
       console.error('Error during checkout:', error.response?.data || error.message);
       Alert.alert('Error', error.response?.data?.message || 'Failed to place order. Please try again.');
     } finally {
       setCheckoutLoading(false);
+    }
+  };
+  
+  // Helper function to handle authentication errors
+  const handleAuthError = (error) => {
+    if (error.response?.status === 401) {
+      Alert.alert('Error', 'Session expired. Please log in again.');
+      navigation.navigate('Login');
+    } else if (error.response?.status === 403) {
+      Alert.alert('Error', 'Access denied. Your account may not have customer privileges. Please contact support.');
+    } else {
+      console.error('Error fetching user data:', error);
+      Alert.alert('Error', 'Failed to fetch user information. Please try again.');
     }
   };
 
@@ -457,14 +469,13 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-start',
   },
   bookTitle: {
-    ...FONTS.medium,
+    ...FONTS.semiBold,
     fontSize: SIZES.medium,
     marginTop: 5,
   },
   bookDescription: {
     ...FONTS.regular,
     fontSize: SIZES.small,
-    color: COLORS.secondary,
     marginTop: 5,
   },
   priceContainer: {
