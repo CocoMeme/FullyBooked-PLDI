@@ -11,6 +11,7 @@ import {
   SafeAreaView,
   Dimensions,
   Animated,
+  StatusBar
 } from 'react-native';
 import { useDispatch } from 'react-redux';
 import { addToCart } from '../../redux/actions/cartActions';
@@ -77,10 +78,7 @@ const BookDetails = ({ route, navigation }) => {
         {book.coverImage.map((_, index) => (
           <View
             key={index}
-            style={[
-              styles.paginationDot,
-              { backgroundColor: index === activeSlide ? COLORS.primary : '#D9D9D9' }
-            ]}
+            style={[styles.paginationDot, { backgroundColor: index === activeSlide ? COLORS.primary : '#D9D9D9' }]}
           />
         ))}
       </View>
@@ -112,13 +110,16 @@ const BookDetails = ({ route, navigation }) => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <Animated.View style={[styles.headerContainer, { opacity: headerOpacity }]}>
+      <StatusBar backgroundColor={COLORS.background} barStyle="dark-content" />
+      
+      {/* Fixed header that's always visible */}
+      <View style={styles.fixedHeader}>
         <Header 
-          title={book.title} 
+          title={book?.title || 'Book Details'} 
           showBackButton={true}
-          style={styles.header}
+          onBackPress={() => navigation.goBack()}
         />
-      </Animated.View>
+      </View>
 
       <Animated.ScrollView
         onScroll={Animated.event(
@@ -126,6 +127,7 @@ const BookDetails = ({ route, navigation }) => {
           { useNativeDriver: true }
         )}
         scrollEventThrottle={16}
+        contentContainerStyle={{ paddingTop: 60 }} // Add padding for the fixed header
       >
         <View style={styles.carouselContainer}>
           <PagerView
@@ -227,10 +229,11 @@ const styles = StyleSheet.create({
     height: screenWidth * 1.2,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: '#f8f9fa',
   },
   carouselImage: {
-    width: '100%',
-    height: '100%',
+    width: '80%',
+    height: '80%',
   },
   paginationContainer: {
     flexDirection: 'row',
@@ -250,16 +253,13 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.background,
   },
-  headerContainer: {
+  fixedHeader: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
     zIndex: 100,
     backgroundColor: COLORS.background,
-  },
-  header: {
-    backgroundColor: 'transparent',
   },
   loadingContainer: {
     flex: 1,

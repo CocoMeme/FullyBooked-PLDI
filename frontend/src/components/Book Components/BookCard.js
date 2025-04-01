@@ -44,6 +44,20 @@ const BookCard = ({ book, navigation, showAddToCart = true }) => {
     );
   };
 
+  // Get the book cover image source
+  const getBookCoverSource = () => {
+    // If coverImage is an array, use the first image
+    if (book.coverImage && Array.isArray(book.coverImage) && book.coverImage.length > 0) {
+      return { uri: book.coverImage[0] };
+    }
+    // If coverImage is a string, use it directly
+    else if (book.coverImage && typeof book.coverImage === 'string') {
+      return { uri: book.coverImage };
+    }
+    // Fallback to default image
+    return require('../../../assets/splash-icon.png');
+  };
+
   return (
     <View style={styles.bookItem}>
       <TouchableOpacity 
@@ -51,7 +65,7 @@ const BookCard = ({ book, navigation, showAddToCart = true }) => {
         onPress={() => navigation.navigate('BookDetails', { bookId: book._id || book.id })}
       >
         <Image 
-          source={book.coverImage?.[0] ? { uri: book.coverImage[0] } : (book.coverImage || require('../../../assets/splash-icon.png'))} 
+          source={getBookCoverSource()} 
           style={styles.bookCover} 
           resizeMode="contain"
         />

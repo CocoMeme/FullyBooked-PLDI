@@ -205,7 +205,7 @@ const AccountScreen = () => {
         {userData && (
           <View style={styles.menuSection}>
             <TouchableOpacity style={styles.menuItem} onPress={navigateToOrderHistory}>
-              <Text style={styles.menuItemText}>Order History</Text>
+              <Text style={styles.menuItemText}>My Orders</Text>
               <Text style={styles.menuItemArrow}>›</Text>
             </TouchableOpacity>
             

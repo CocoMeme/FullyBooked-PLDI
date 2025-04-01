@@ -20,6 +20,7 @@ const Stack = createStackNavigator();
 const HomeStack = () => (
   <Stack.Navigator screenOptions={{ headerShown: false }}>
     <Stack.Screen name="HomeScreen" component={HomeScreen} />
+    <Stack.Screen name="BookDetails" component={BookDetails} />
   </Stack.Navigator>
 );
 
@@ -69,7 +70,7 @@ const CustomerNavigator = () => {
         },
         tabBarIcon: ({ focused, color, size }) => {
           let iconName;
-          
+
           if (route.name === 'Home') {
             iconName = focused ? 'home' : 'home-outline';
           } else if (route.name === 'Books') {
@@ -81,19 +82,19 @@ const CustomerNavigator = () => {
           } else if (route.name === 'Account') {
             iconName = focused ? 'person' : 'person-outline';
           }
-          
+
           return <Ionicons name={iconName} size={22} color={color} />;
         },
       })}
     >
       <Tab.Screen name="Home" component={HomeStack} />
       <Tab.Screen name="Books" component={BooksStack} />
-      <Tab.Screen name="Cart" component={CartStack} 
+      <Tab.Screen name="Cart" component={CartStack}
         options={{
           tabBarBadge: null, // This will be dynamically updated with cart count
         }}
       />
-      <Tab.Screen name="Notifications" component={NotificationStack} 
+      <Tab.Screen name="Notifications" component={NotificationStack}
         options={({ navigation }) => ({
 
           tabBarBadge: 2, // Static badge for demonstration, make it dynamic in real app
