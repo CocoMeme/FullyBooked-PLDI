@@ -18,8 +18,8 @@ import * as ImagePicker from 'expo-image-picker';
 import Button from '../Button';
 import { useNavigation } from '@react-navigation/native';
 
-// Default avatar image
-const DEFAULT_AVATAR = 'https://via.placeholder.com/150';
+// Default avatar image from Cloudinary
+const DEFAULT_AVATAR = "https://res.cloudinary.com/do8azqoyg/image/upload/v1743471290/Fully%20Booked/cryphitleu7qbgugiov8.png";
 
 const AccountProfile = ({ onComplete }) => {
   const context = useContext(AuthGlobal);

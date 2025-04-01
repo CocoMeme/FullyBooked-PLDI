@@ -20,8 +20,8 @@ import Button from '../components/Button';
 import Header from '../components/Header';
 import AccountProfile from '../components/Account Components/AccountProfile';
 
-// Default avatar image
-const DEFAULT_AVATAR = 'https://via.placeholder.com/150';
+// Default avatar image from Cloudinary
+const DEFAULT_AVATAR = "https://res.cloudinary.com/do8azqoyg/image/upload/v1743471290/Fully%20Booked/cryphitleu7qbgugiov8.png";
 
 const AccountScreen = () => {
   const context = useContext(AuthGlobal);
@@ -162,23 +162,33 @@ const AccountScreen = () => {
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.profileSection}>
           <View style={styles.profileLayout}>
-            <Image 
-              source={{ uri: userData?.avatar || DEFAULT_AVATAR }} 
-              style={styles.profileImage} 
-            />
+            <View style={styles.avatarContainer}>
+              <Image 
+                source={userData?.avatar && typeof userData.avatar === 'string' 
+                  ? { uri: userData.avatar } 
+                  : DEFAULT_AVATAR} 
+                style={styles.profileImage} 
+              />
+              {userData && (
+                <TouchableOpacity onPress={toggleProfileEditor} style={styles.editProfileLink}>
+                  <Text style={styles.editProfileText}>Edit Profile</Text>
+                </TouchableOpacity>
+              )}
+            </View>
             <View style={styles.userInfoContainer}>
               <Text style={styles.username}>{userData?.username || 'Guest User'}</Text>
               <Text style={styles.email}>{userData?.email || 'Sign in to view your profile'}</Text>
+              {userData?.id && (
+                <View style={styles.idContainer}>
+                  <Text style={styles.idLabel}>User ID: </Text>
+                  <Text style={styles.idValue}>{userData.id}</Text>
+                </View>
+              )}
               {userData?.role && (
                 <View style={styles.roleContainer}>
                   <Text style={styles.roleLabel}>Role: </Text>
                   <Text style={styles.roleValue}>{userData.role.charAt(0).toUpperCase() + userData.role.slice(1)}</Text>
                 </View>
-              )}
-              {userData && (
-                <TouchableOpacity onPress={toggleProfileEditor} style={styles.editProfileLink}>
-                  <Text style={styles.editProfileText}>Edit Profile</Text>
-                </TouchableOpacity>
               )}
             </View>
           </View>
@@ -264,11 +274,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: SIZES.medium,
   },
-  profileImage: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+  avatarContainer: {
+    alignItems: 'center',
     marginRight: SIZES.medium,
+  },
+  profileImage: {
+    width: 70,
+    height: 70,
+    borderRadius: 40,
+    marginBottom: 2,
+    marginHorizontal: SIZES.extraLarge,
   },
   userInfoContainer: {
     flex: 1,
@@ -284,6 +299,20 @@ const styles = StyleSheet.create({
     fontSize: SIZES.medium,
     color: COLORS.onBackground,
     marginBottom: SIZES.small / 2,
+  },
+  idContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  idLabel: {
+    ...FONTS.medium,
+    fontSize: SIZES.small,
+    color: COLORS.onBackground,
+  },
+  idValue: {
+    ...FONTS.semiBold,
+    fontSize: SIZES.small,
+    color: COLORS.primary,
   },
   roleContainer: {
     flexDirection: 'row',
@@ -301,6 +330,7 @@ const styles = StyleSheet.create({
   },
   editProfileLink: {
     marginTop: SIZES.small,
+    alignItems: 'center',
   },
   editProfileText: {
     ...FONTS.medium,
