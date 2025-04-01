@@ -1,41 +1,13 @@
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Platform } from 'react-native';
-import Constants from 'expo-constants';
+import baseURL from '../assets/common/baseurl';
 
-// Determine the appropriate base URL based on the environment
-let BASE_URL = '';
-
-// Get the device type - true if running in an emulator
-const isEmulator = Constants.appOwnership === 'expo' && Constants.executionEnvironment === 'standalone';
-
-if (Platform.OS === 'android') {
-  // For Android emulator, use 10.0.2.2
-  if (isEmulator) {
-    BASE_URL = 'http://10.0.2.2:3000/api';
-  } else {
-    // For physical Android devices using Expo Go, we need your development machine's IP
-    // This should be your computer's IP address on your local network
-    BASE_URL = 'http://192.168.112.700:3000/api'; // Replace with your actual IP
-  }
-} else if (Platform.OS === 'ios') {
-  // For iOS simulator, use localhost
-  if (isEmulator) {
-    BASE_URL = 'http://localhost:3000/api';
-  } else {
-    // For physical iOS devices using Expo Go
-    BASE_URL = 'http://192.168.1.66:3000/api'; // Replace with your actual IP
-  }
-} else {
-  // Web or other platforms
-  BASE_URL = 'http://localhost:3000/api';
-}
-
-console.log('API Base URL (from api.js):', BASE_URL);
+// Use the baseURL directly from the imported file
+console.log('API Base URL (from api.js):', baseURL);
 
 // Create an Axios instance with a base URL
 const api = axios.create({
-  baseURL: BASE_URL,
+  baseURL: baseURL,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -135,5 +107,5 @@ export const fetchData = async (url, options = {}) => {
   }
 };
 
-export default BASE_URL;
 export { API_URL, api };
+export default baseURL;

@@ -7,20 +7,20 @@ let baseURL = '';
 const isEmulator = Constants.appOwnership === 'expo' && Constants.executionEnvironment === 'standalone';
 
 if (Platform.OS === 'android') {
-  // For Android emulator, use 10.0.2.2
   if (isEmulator) {
     baseURL = 'http://10.0.2.2:3000/api/';
   } else {
-    // For physical Android devices using Expo Go, we need your development machine's IP
-    baseURL = 'http://192.168.112.70:3000/api/'; // Replace with your actual IP
+    // Andrei's local IP address
+    baseURL = 'http://192.168.1.66:3000/api/'; 
+
+    // Joey's local IP address
+    // baseURL = 'http://192.168.112.700:3000/api/'
   }
 } else if (Platform.OS === 'ios') {
-  // For iOS simulator, use localhost
   if (isEmulator) {
     baseURL = 'http://localhost:3000/api/';
   } else {
-    // For physical iOS devices using Expo Go
-    baseURL = 'http://192.168.1.66:3000/api/'; // Replace with your actual IP
+    baseURL = 'http://192.168.1.66:3000/api/'; 
   }
 } else {
   // Web or other platforms
