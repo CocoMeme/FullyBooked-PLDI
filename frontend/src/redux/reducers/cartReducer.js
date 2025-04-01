@@ -1,4 +1,4 @@
-import { ADD_TO_CART, REMOVE_FROM_CART, CLEAR_CART } from '../../constants/cartConstants';
+import { ADD_TO_CART, REMOVE_FROM_CART, CLEAR_CART, UPDATE_QUANTITY } from '../../constants/cartConstants';
 
 const initialState = {
   cartItems: [],
@@ -28,6 +28,21 @@ export const cartReducer = (state = initialState, action) => {
       return {
         ...state,
         cartItems: state.cartItems.filter((x) => x.id !== action.payload),
+      };
+      
+    case UPDATE_QUANTITY:
+      return {
+        ...state,
+        cartItems: state.cartItems.map((item) => 
+          item.id === action.payload.id 
+            ? { 
+                ...item, 
+                quantity: action.payload.action === 'increase' 
+                  ? item.quantity + 1 
+                  : Math.max(item.quantity - 1, 1) 
+              } 
+            : item
+        ),
       };
 
     case CLEAR_CART:

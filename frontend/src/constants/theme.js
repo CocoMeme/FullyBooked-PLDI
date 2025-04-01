@@ -1,11 +1,14 @@
+import { getFocusedRouteNameFromRoute } from "@react-navigation/native";
+
 export const COLORS = {
   primary: '#FFC107', // Yellow primary
   primaryVariant: '#FFAB00', // Darker yellow
   secondary: '#FFD54F', // Light yellow
   secondaryVariant: '#FFB300', // Amber
-  background: '#FFFFFF',
-  surface: '#FFFFFF',
-  error: '#B00020',
+  background: '#FFFFFF', // White background
+  surface: '#FFFFFF', // White surface
+  error: '#B00020', // Red for error
+  green: '#4CAF50', // Green for success
   onPrimary: '#000000', // Text on yellow is black for better contrast
   onSecondary: '#000000',
   onBackground: '#000000',

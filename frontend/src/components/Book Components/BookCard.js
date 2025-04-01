@@ -46,7 +46,7 @@ const BookCard = ({ book, navigation, showAddToCart = true }) => {
         <Image 
           source={book.coverImage?.[0] ? { uri: book.coverImage[0] } : (book.coverImage || require('../../../assets/splash-icon.png'))} 
           style={styles.bookCover} 
-          resizeMode="cover"
+          resizeMode="contain"
         />
         {book.tag && book.tag !== 'None' && (
           <View style={[styles.tagContainer, 
@@ -97,15 +97,16 @@ const styles = StyleSheet.create({
     marginBottom: SIZES.small,
   },
   bookCard: {
-    backgroundColor: COLORS.white,
+    backgroundColor: '#ffe',
     borderRadius: SIZES.medium,
   },
   bookCover: {
     width: '100%',
-    height: 180,
+    height: 275,
     backgroundColor: '#f0f0f0',
     borderTopLeftRadius: SIZES.medium,
     borderTopRightRadius: SIZES.medium,
+    resizeMode: 'contain', // Change from default 'cover' to 'contain' to show the full image
   },
   bookInfo: {
     padding: SIZES.small,
