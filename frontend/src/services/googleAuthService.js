@@ -8,7 +8,7 @@ import {
 } from 'firebase/auth';
 import { Alert } from 'react-native';
 import { auth } from './firebaseConfig';
-import api from './api';
+import { api } from './api';
 import { jwtDecode } from 'jwt-decode';
 
 // Initialize WebBrowser for OAuth redirects

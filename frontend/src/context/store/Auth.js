@@ -3,7 +3,7 @@ import { jwtDecode } from "jwt-decode"
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { auth } from '../../services/firebaseConfig';
 import { onAuthStateChanged } from 'firebase/auth';
-import api from '../../services/api';
+import { api } from '../../services/api';
 
 import authReducer from "../reducers/auth.reducer";
 import { setCurrentUser } from "../actions/auth.action";

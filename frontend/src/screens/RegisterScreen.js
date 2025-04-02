@@ -14,11 +14,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { useGoogleAuth } from '../services/googleAuthService';
 import AuthGlobal from '../context/store/AuthGlobal';
 import { loginUser, setCurrentUser } from '../context/actions/auth.action';
-import api, { authAPI } from '../services/api'; // Import authAPI
+import { api, authAPI } from '../services/api'; // Fixed import to use named export
 import { useNavigation } from '@react-navigation/native';
 import { COLORS, FONTS, SIZES } from '../constants/theme';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import baseURL, { testAPIConnection } from '../assets/common/baseurl'; // Import baseURL and testAPIConnection
+import baseURL, { testAPIConnection } from '../assets/common/baseurl';
 import { jwtDecode } from 'jwt-decode';
 
 const RegisterScreen = () => {
