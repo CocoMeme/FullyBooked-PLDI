@@ -41,47 +41,44 @@ const MyOrdersScreen = ({ navigation }) => {
   const fetchUserOrders = async () => {
     try {
       setLoading(true);
-      
+  
       // Get auth token from AsyncStorage
       const token = await AsyncStorage.getItem('jwt');
-      
+  
       if (!token) {
         console.log('No authentication token found');
-        // If no token, we can show an empty state or basic message
         setOrders([]);
         return;
       }
-      
+  
       // Create request configuration with authorization header
       const config = {
         headers: {
           Authorization: `Bearer ${token}`,
         },
       };
-      
+  
       console.log('Fetching orders with token:', token.substring(0, 10) + '...');
-      
+  
       // Make the API call to fetch user orders
-      const response = await axios.get(
-        `${baseURL}orders/user-orders`,
-        config
-      );
-      
+      const response = await axios.get(`${baseURL}orders/my-orders`, config);
+  
       console.log('Orders API response status:', response.status);
       console.log('Orders response data:', response.data);
-      
+  
       if (response.status === 200) {
-        // If the response is an empty array, set orders to empty and return
-        if (Array.isArray(response.data) && response.data.length === 0) {
+        // Access the orders array from response.data.orders
+        const ordersData = response.data.orders;
+  
+        if (Array.isArray(ordersData) && ordersData.length === 0) {
           console.log('No orders found for user');
           setOrders([]);
           return;
         }
-        
+  
         // Transform the data to match the expected structure
-        const formattedOrders = Array.isArray(response.data) ? response.data.map(order => ({
+        const formattedOrders = ordersData.map(order => ({
           id: order._id,
-          _id: order._id, // Include both id and _id for consistency
           orderNumber: order.orderNumber || `ORD-${Math.floor(Math.random() * 100000)}`,
           date: order.createdAt,
           createdAt: order.createdAt,
@@ -101,37 +98,33 @@ const MyOrdersScreen = ({ navigation }) => {
           estimatedDeliveryDate: order.estimatedDeliveryDate,
           shippedAt: order.shippedAt,
           deliveredAt: order.deliveredAt,
-        })) : [];
-        
+        }));
+  
         console.log(`Formatted ${formattedOrders.length} orders`);
         setOrders(formattedOrders);
       } else {
-        // Handle unexpected status codes
         console.error('Unexpected response status:', response.status);
         Alert.alert('Error', 'Failed to fetch orders. Please try again.');
       }
     } catch (error) {
       console.error('Error fetching orders:', error);
       console.error('Error details:', error.response?.data || error.message);
-      
-      // Handle specific error cases
+  
       if (error.response?.status === 401) {
         Alert.alert('Session Expired', 'Please log in again to view your orders.');
-        // You could navigate to login screen here
       } else if (error.response?.status === 404) {
         console.error('API endpoint not found. Check your routes configuration.');
         Alert.alert('Error', 'Order history service is currently unavailable. Please try again later.');
       } else {
         Alert.alert('Error', 'Failed to fetch your orders. Please try again later.');
       }
-      
-      // Set empty orders array in case of error
+  
       setOrders([]);
     } finally {
       setLoading(false);
     }
   };
-
+    
   const renderTabContent = () => {
     if (loading) {
       return (
@@ -193,10 +186,11 @@ const MyOrdersScreen = ({ navigation }) => {
           </Text>
         </TouchableOpacity>
       </View>
-      
-      <ScrollView contentContainerStyle={styles.contentContainer}>
+  
+      {/* Replace ScrollView with a simple View */}
+      <View style={styles.contentContainer}>
         {renderTabContent()}
-      </ScrollView>
+      </View>
     </SafeAreaView>
   );
 };

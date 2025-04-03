@@ -30,7 +30,7 @@ router.put("/profile/update", verifyToken, updateUserProfile);
 router.post("/profile/update", verifyToken, updateUserProfile);
 
 // Admin-protected routes
-router.get("/", verifyAdminToken, getAllUsers);
+router.get("/all", verifyAdminToken, getAllUsers);
 router.get("/:id", verifyAdminToken, getSingleUser);
 router.post("/create-user", verifyAdminToken, adminCreateUser);
 router.put("/update/:id", verifyAdminToken, updateUser); // Update user by ID

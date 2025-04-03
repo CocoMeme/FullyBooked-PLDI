@@ -52,3 +52,33 @@ exports.getAllOrders = async (req, res) => {
     res.status(500).json({ message: 'Failed to fetch orders.' });
   }
 };
+
+exports.getMyOrders = async (req, res) => {
+  try {
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({ message: 'Unauthorized. User not authenticated.' });
+    }
+
+    const { id: userId } = req.user;
+    console.log('Fetching orders for user:', userId);
+
+    // Fetch orders for the logged-in user
+    const orders = await Order.find({ user: userId })
+      .populate('items.book', 'title price')
+      .sort({ createdAt: -1 });
+
+    // Add a "toReview" flag for delivered orders that haven't been reviewed
+    const formattedOrders = orders.map(order => ({
+      ...order.toObject(),
+      toReview: order.status === 'delivered' && !order.reviewed, // Add toReview flag
+    }));
+
+    res.status(200).json({
+      message: 'Orders fetched successfully.',
+      orders: formattedOrders,
+    });
+  } catch (error) {
+    console.error('Error fetching user orders:', error);
+    res.status(500).json({ message: 'Failed to fetch user orders.' });
+  }
+};

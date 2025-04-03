@@ -17,8 +17,7 @@ import Header from '../../components/Header';
 import { COLORS, FONTS, SIZES } from '../../constants/theme';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Picker } from '@react-native-picker/picker';
-
-const API_URL = 'http://192.168.168.70:3000/api';
+import API_URL from '../../services/api';
 
 const UserManagement = () => {
   const [users, setUsers] = useState([]);
@@ -40,7 +39,7 @@ const UserManagement = () => {
         throw new Error('JWT token not found');
       }
 
-      const response = await axios.get(`${API_URL}/users`, {
+      const response = await axios.get(`${API_URL}users/all`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -155,14 +154,14 @@ const UserManagement = () => {
   return (
     <View style={styles.container}>
       <Header 
-        title="User Management" 
-        showBackButton={true}
-        rightComponent={(~
-          <TouchableOpacity onPress={() => Alert.alert('Info', 'Add user feature coming soon')}>
-            <Ionicons name="person-add" size={24} color={COLORS.primary} />
-          </TouchableOpacity>
-        )}
-      />
+  title="User Management" 
+  showBackButton={true}
+  rightComponent={
+    <TouchableOpacity onPress={() => Alert.alert('Info', 'Add user feature coming soon')}>
+      <Ionicons name="person-add" size={24} color={COLORS.primary} />
+    </TouchableOpacity>
+  }
+/>
 
       {loading ? (
         <View style={styles.centerContainer}>
