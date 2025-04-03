@@ -40,3 +40,15 @@ exports.placeOrder = async (req, res) => {
     res.status(500).json({ message: 'Failed to place order.' });
   }
 };
+
+exports.getAllOrders = async (req, res) => {
+  try {
+    const orders = await Order.find()
+      .populate('user', 'name email')
+      .populate('items.book', 'title price');
+    res.status(200).json({ message: 'Orders fetched successfully.', orders });
+  } catch (error) {
+    console.error('Error fetching orders:', error);
+    res.status(500).json({ message: 'Failed to fetch orders.' });
+  }
+};

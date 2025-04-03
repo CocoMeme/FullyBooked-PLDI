@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import axios from 'axios';
 import { 
   View, 
   Text, 
@@ -20,59 +21,18 @@ const OrderManagement = ({ navigation }) => {
 
   useEffect(() => {
     fetchOrders();
+    console.log('Fetching orders...', orders);
   }, []);
 
   const fetchOrders = async () => {
     try {
       setLoading(true);
-      // This would be replaced with an actual API call in production
-      // const response = await axios.get(API_URL.GET_ALL_ORDERS);
-
-      // Dummy data for demonstration
-      const dummyOrders = [
-        {
-          _id: '1',
-          orderNumber: 'ORD-001-2025',
-          customerName: 'John Doe',
-          customerEmail: 'john@example.com',
-          date: '2025-03-15T14:30:00.000Z',
-          status: 'delivered',
-          totalAmount: 85.97,
-          items: 3
+      const response = await axios.get(`${API_URL}orders/all`, {
+        headers: {
+          'Cache-Control': 'no-cache', // Prevent caching
         },
-        {
-          _id: '2',
-          orderNumber: 'ORD-002-2025',
-          customerName: 'Jane Smith',
-          customerEmail: 'jane@example.com',
-          date: '2025-03-20T09:45:00.000Z',
-          status: 'processing',
-          totalAmount: 42.50,
-          items: 2
-        },
-        {
-          _id: '3',
-          orderNumber: 'ORD-003-2025',
-          customerName: 'Mike Johnson',
-          customerEmail: 'mike@example.com',
-          date: '2025-03-22T16:20:00.000Z',
-          status: 'pending',
-          totalAmount: 124.75,
-          items: 5
-        },
-        {
-          _id: '4',
-          orderNumber: 'ORD-004-2025',
-          customerName: 'Sarah Williams',
-          customerEmail: 'sarah@example.com',
-          date: '2025-03-25T11:10:00.000Z',
-          status: 'cancelled',
-          totalAmount: 67.30,
-          items: 2
-        }
-      ];
-
-      setOrders(dummyOrders);
+      });
+      setOrders(response.data.orders || []); // Ensure orders is always an array
     } catch (error) {
       console.error('Error fetching orders:', error);
       Alert.alert('Error', 'Failed to load orders');
@@ -112,10 +72,6 @@ const OrderManagement = ({ navigation }) => {
 
   const updateOrderStatus = (orderId, newStatus) => {
     try {
-      // In a real app, you would call API to update the status
-      // await axios.put(API_URL.UPDATE_ORDER_STATUS(orderId), { status: newStatus });
-      
-      // For now, we'll just update it in the local state
       setOrders(orders.map(order => 
         order._id === orderId ? { ...order, status: newStatus } : order
       ));
@@ -129,7 +85,7 @@ const OrderManagement = ({ navigation }) => {
   const renderOrderItem = ({ item }) => (
     <View style={styles.orderItem}>
       <View style={styles.orderHeader}>
-        <Text style={styles.orderNumber}>{item.orderNumber}</Text>
+        <Text style={styles.orderNumber}>{item.orderNumber || 'N/A'}</Text>
         <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) }]}>
           <Text style={styles.statusText}>{item.status.toUpperCase()}</Text>
         </View>
@@ -138,23 +94,25 @@ const OrderManagement = ({ navigation }) => {
       <View style={styles.orderDetails}>
         <View style={styles.detailRow}>
           <Text style={styles.detailLabel}>Customer:</Text>
-          <Text style={styles.detailValue}>{item.customerName}</Text>
+          <Text style={styles.detailValue}>{item.customerName || 'Unknown'}</Text>
         </View>
         <View style={styles.detailRow}>
           <Text style={styles.detailLabel}>Email:</Text>
-          <Text style={styles.detailValue}>{item.customerEmail}</Text>
+          <Text style={styles.detailValue}>{item.customerEmail || 'N/A'}</Text>
         </View>
         <View style={styles.detailRow}>
           <Text style={styles.detailLabel}>Date:</Text>
-          <Text style={styles.detailValue}>{new Date(item.date).toLocaleDateString()}</Text>
+          <Text style={styles.detailValue}>{item.date ? new Date(item.date).toLocaleDateString() : 'N/A'}</Text>
         </View>
         <View style={styles.detailRow}>
           <Text style={styles.detailLabel}>Items:</Text>
-          <Text style={styles.detailValue}>{item.items}</Text>
+          <Text style={styles.detailValue}>
+            {item.items.map((orderItem) => `${orderItem.book.title} (x${orderItem.quantity})`).join(', ')}
+          </Text>
         </View>
         <View style={styles.detailRow}>
           <Text style={styles.detailLabel}>Total:</Text>
-          <Text style={styles.totalAmount}>${item.totalAmount.toFixed(2)}</Text>
+          <Text style={styles.totalAmount}>${item.totalAmount ? item.totalAmount.toFixed(2) : '0.00'}</Text>
         </View>
       </View>
       
@@ -219,7 +177,7 @@ const styles = StyleSheet.create({
   },
   listContainer: {
     padding: SIZES.medium,
-    paddingBottom: 100, // Extra padding at the bottom
+    paddingBottom: 100,
   },
   orderItem: {
     backgroundColor: '#fff',
