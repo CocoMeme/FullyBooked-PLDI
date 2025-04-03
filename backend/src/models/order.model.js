@@ -21,13 +21,18 @@ const orderSchema = new mongoose.Schema(
           },
         },
       ],
+      paymentMethod: {
+        type: String,
+        enum: ['COD', 'Card', 'PayPal', 'Bank Transfer'],
+        default: 'COD',
+      },
       totalAmount: {
         type: Number,
         required: true,
       },
       status: {
         type: String,
-        enum: ['Pending', 'Completed', 'Cancelled'],
+        enum: ['Pending', 'Completed', 'Cancelled', 'Delivered', 'Cancelled'],
         default: 'Pending',
       },
       notificationSent: {
