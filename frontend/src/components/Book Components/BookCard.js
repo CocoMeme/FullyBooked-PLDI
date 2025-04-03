@@ -87,11 +87,11 @@ const BookCard = ({ book, navigation, showAddToCart = true }) => {
           <View style={styles.bookBottomRow}>
             {book.tag === 'Sale' && book.discountPrice ? (
               <View style={styles.priceContainer}>
-                <Text style={styles.discountPrice}>${book.discountPrice.toFixed(2)}</Text>
-                <Text style={styles.originalPrice}>${book.price.toFixed(2)}</Text>
+                <Text style={styles.discountPrice}>₱{book.discountPrice.toFixed(2)}</Text>
+                <Text style={styles.originalPrice}>₱{book.price.toFixed(2)}</Text>
               </View>
             ) : (
-              <Text style={styles.bookPrice}>${book.price?.toFixed(2) || book.price}</Text>
+              <Text style={styles.bookPrice}>₱{book.price?.toFixed(2) || book.price}</Text>
             )}
             <View style={styles.ratingContainer}>
               {renderRatingStars(book.averageRating)}

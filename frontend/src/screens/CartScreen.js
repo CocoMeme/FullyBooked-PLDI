@@ -280,11 +280,11 @@ const CartScreen = ({ navigation }) => {
         <View style={styles.priceContainer}>
           {item.discountPrice ? (
             <>
-              <Text style={styles.discountPrice}>${item.discountPrice.toFixed(2)}</Text>
-              <Text style={styles.originalPrice}>${item.price.toFixed(2)}</Text>
+              <Text style={styles.discountPrice}>₱{item.discountPrice.toFixed(2)}</Text>
+              <Text style={styles.originalPrice}>₱{item.price.toFixed(2)}</Text>
             </>
           ) : (
-            <Text style={styles.price}>${item.price.toFixed(2)}</Text>
+            <Text style={styles.price}>₱{item.price.toFixed(2)}</Text>
           )}
         </View>
         
@@ -367,13 +367,13 @@ const CartScreen = ({ navigation }) => {
           <View style={styles.checkoutContainer}>
             <View style={styles.totalContainer}>
               <Text style={styles.totalLabel}>Total:</Text>
-              <Text style={styles.totalAmount}>${totalAmount.toFixed(2)}</Text>
+              <Text style={styles.totalAmount}>₱{totalAmount.toFixed(2)}</Text>
             </View>
             
             {totalDiscount > 0 && (
               <View style={styles.discountContainer}>
                 <Text style={styles.discountLabel}>You Save:</Text>
-                <Text style={styles.discountAmount}>${totalDiscount.toFixed(2)}</Text>
+                <Text style={styles.discountAmount}>₱{totalDiscount.toFixed(2)}</Text>
               </View>
             )}
             
@@ -389,7 +389,7 @@ const CartScreen = ({ navigation }) => {
                    paymentMethod === 'Card' ? 'Credit/Debit Card' : 
                    paymentMethod === 'PayPal' ? 'PayPal' : 'Bank Transfer'}
                 </Text>
-                <MaterialIcons name="keyboard-arrow-down" size={20} color={COLORS.primary} />
+                <MaterialIcons name="keyboard-arrow-down" size={20} />
               </View>
             </TouchableOpacity>
             
@@ -693,7 +693,7 @@ const styles = StyleSheet.create({
   paymentMethodText: {
     ...FONTS.medium,
     fontSize: SIZES.medium,
-    color: COLORS.primary,
+    // color: COLORS.primary,
     marginRight: SIZES.small,
   },
   // Payment method modal styles

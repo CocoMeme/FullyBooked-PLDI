@@ -180,11 +180,11 @@ const BookDetails = ({ route, navigation }) => {
             <View style={styles.priceContainer}>
               {book.tag === 'Sale' && book.discountPrice ? (
                 <>
-                  <Text style={styles.discountPrice}>${formatPrice(book.discountPrice)}</Text>
-                  <Text style={styles.originalPrice}>${formatPrice(book.price)}</Text>
+                  <Text style={styles.discountPrice}>₱{formatPrice(book.discountPrice)}</Text>
+                  <Text style={styles.originalPrice}>₱{formatPrice(book.price)}</Text>
                 </>
               ) : (
-                <Text style={styles.price}>${formatPrice(book.price)}</Text>
+                <Text style={styles.price}>₱{formatPrice(book.price)}</Text>
               )}
             </View>
             <Text style={[
