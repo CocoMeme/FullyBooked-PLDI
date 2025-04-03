@@ -1,4 +1,4 @@
-import * as types from './bookActionTypes';
+import * as types from '../constants/bookConstants';
 import { API_URL, api } from '../../services/api';
 import { Platform } from 'react-native';
 import axios from 'axios';

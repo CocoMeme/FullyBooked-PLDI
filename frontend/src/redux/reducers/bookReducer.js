@@ -1,4 +1,4 @@
-import * as types from '../actions/bookActionTypes';
+import * as types from '../constants/bookConstants';
 
 const initialState = {
   books: [],

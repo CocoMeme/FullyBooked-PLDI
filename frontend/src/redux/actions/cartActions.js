@@ -1,6 +1,6 @@
 // Import necessary dependencies
-import AsyncStorage from '@react-native-async-storage/async-storage'; // For persistent storage (React Native)
-import { ADD_TO_CART, REMOVE_FROM_CART, CLEAR_CART, UPDATE_QUANTITY } from '../../constants/cartConstants'; // Action types
+import AsyncStorage from '@react-native-async-storage/async-storage'; 
+import { ADD_TO_CART, REMOVE_FROM_CART, CLEAR_CART, UPDATE_QUANTITY } from '../constants/cartConstants';
 
 // Action to add a book to the cart
 export const addToCart = (book) => async (dispatch, getState) => {

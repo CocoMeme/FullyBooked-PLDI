@@ -1,5 +1,5 @@
 import { api } from '../../services/api';
-import * as types from './reviewActionTypes';
+import * as types from '../constants/reviewConstants';
 
 // Submit a review
 export const submitReview = (reviewData) => async (dispatch) => {

@@ -1,4 +1,4 @@
-import * as types from '../actions/reviewActionTypes';
+import * as types from '../constants/reviewConstants';
 
 const initialState = {
   loading: false,
