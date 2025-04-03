@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { 
   View, 
   Text, 
@@ -70,12 +71,27 @@ const OrderManagement = ({ navigation }) => {
     );
   };
 
-  const updateOrderStatus = (orderId, newStatus) => {
+  const updateOrderStatus = async (orderId, newStatus) => {
     try {
-      setOrders(orders.map(order => 
-        order._id === orderId ? { ...order, status: newStatus } : order
-      ));
-      Alert.alert('Success', 'Order status updated successfully');
+      const token = await AsyncStorage.getItem('jwt'); // Retrieve the JWT token from storage
+      const response = await axios.put(
+        `${API_URL}orders/update-status/${orderId}`,
+        { status: newStatus },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`, // Include the token in the Authorization header
+          },
+        }
+      );
+  
+      if (response.status === 200) {
+        setOrders(orders.map(order => 
+          order._id === orderId ? { ...order, status: newStatus } : order
+        ));
+        Alert.alert('Success', 'Order status updated successfully');
+      } else {
+        Alert.alert('Error', 'Failed to update order status');
+      }
     } catch (error) {
       console.error('Error updating order status:', error);
       Alert.alert('Error', 'Failed to update order status');

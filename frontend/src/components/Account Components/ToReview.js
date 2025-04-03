@@ -9,7 +9,10 @@ import {
 import { COLORS, FONTS, SIZES } from '../../constants/theme';
 
 const ToReview = ({ orders, navigation }) => {
-  // Function to format date to readable format
+  // Filter orders with the status "delivered"
+  const deliveredOrders = orders.filter(order => order.status === 'delivered');
+
+  // Function to format date to a readable format
   const formatDate = (dateString) => {
     const options = { year: 'numeric', month: 'short', day: 'numeric' };
     return new Date(dateString).toLocaleDateString(undefined, options);
@@ -17,7 +20,7 @@ const ToReview = ({ orders, navigation }) => {
 
   // Function to handle review button press
   const handleReviewPress = (order, product) => {
-    // Navigate to review screen with product and order information
+    // Navigate to the review screen with product and order information
     navigation.navigate('WriteReview', { 
       product,
       orderId: order.id,
@@ -39,7 +42,7 @@ const ToReview = ({ orders, navigation }) => {
           </View>
         </View>
         
-        <Text style={styles.reviewPrompt}>Please review your purchases:</Text>
+        <Text style={styles.reviewPrompt}>Please rate your purchases:</Text>
         
         <FlatList
           data={order.items}
@@ -64,7 +67,7 @@ const ToReview = ({ orders, navigation }) => {
                 style={styles.reviewButton}
                 onPress={() => handleReviewPress(order, product)}
               >
-                <Text style={styles.reviewButtonText}>Write Review</Text>
+                <Text style={styles.reviewButtonText}>Rate</Text>
               </TouchableOpacity>
             </View>
           )}
@@ -75,18 +78,18 @@ const ToReview = ({ orders, navigation }) => {
     );
   };
 
-  // Show a message if no items to review
-  if (!orders || orders.length === 0) {
+  // Show a message if no delivered items to review
+  if (deliveredOrders.length === 0) {
     return (
       <View style={styles.emptyContainer}>
-        <Text style={styles.emptyText}>You don't have any items to review.</Text>
+        <Text style={styles.emptyText}>You don't have any delivered items to review.</Text>
       </View>
     );
   }
 
   return (
     <FlatList
-      data={orders}
+      data={deliveredOrders}
       keyExtractor={item => item.id}
       renderItem={renderOrderItem}
       contentContainerStyle={styles.listContainer}
