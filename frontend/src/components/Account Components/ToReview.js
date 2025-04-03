@@ -8,9 +8,21 @@ import {
 } from 'react-native';
 import { COLORS, FONTS, SIZES } from '../../constants/theme';
 
-const ToReview = ({ orders, navigation }) => {
-  // Filter orders with the status "delivered"
-  const deliveredOrders = orders.filter(order => order.status === 'delivered');
+const ToReview = ({ orders, navigation, userId }) => {
+  // Log the input props for debugging
+  console.log('Orders Prop:', orders);
+  console.log('User ID Prop:', userId);
+
+  // Filter orders with the status "delivered" and belong to the logged-in user
+  const deliveredOrders = orders.filter(
+    order => order.status === 'delivered' && order.userId === userId
+  );
+
+  // Log the filtered orders and their book IDs for debugging
+  console.log('Delivered Orders:', deliveredOrders);
+  deliveredOrders.forEach(order => {
+    console.log(`Order ${order.orderNumber} Book IDs:`, order.items.map(item => item.id));
+  });
 
   // Function to format date to a readable format
   const formatDate = (dateString) => {
@@ -22,9 +34,12 @@ const ToReview = ({ orders, navigation }) => {
   const handleReviewPress = (order, product) => {
     // Navigate to the review screen with product and order information
     navigation.navigate('WriteReview', { 
-      product,
+      product: {
+        _id: product.book._id, // Pass the bookId
+        title: product.book.title, // Pass the book title
+      },
       orderId: order.id,
-      orderNumber: order.orderNumber
+      orderNumber: order.orderNumber,
     });
   };
 

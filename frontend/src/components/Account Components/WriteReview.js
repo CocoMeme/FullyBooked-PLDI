@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   View, 
   Text, 
@@ -12,15 +12,53 @@ import {
 } from 'react-native';
 import { COLORS, FONTS, SIZES } from '../../constants/theme';
 import Header from '../Header';
+import { useDispatch } from 'react-redux';
+import { submitReview } from '../../redux/actions/reviewActions';
+import axios from 'axios'; // Import axios for fetching book details if needed
 
 const WriteReview = ({ route, navigation }) => {
   const { product, orderId, orderNumber } = route.params;
-  
+
   const [rating, setRating] = useState(0);
   const [reviewText, setReviewText] = useState('');
   const [loading, setLoading] = useState(false);
+  const [bookId, setBookId] = useState(product?._id || null); // Initialize bookId from product or null
+
+  const dispatch = useDispatch();
+
+  // Fetch the bookId if it's not available in the product object
+  useEffect(() => {
+    if (!bookId) {
+      console.log('Fetching bookId for product...');
+      fetchBookId();
+    }
+  }, []);
+
+  const fetchBookId = async () => {
+    try {
+      // Replace with your API endpoint to fetch the book details
+      const response = await axios.get(`/api/books/${product.id}`);
+      if (response.data && response.data._id) {
+        setBookId(response.data._id);
+        console.log('Fetched bookId:', response.data._id);
+      } else {
+        Alert.alert('Error', 'Failed to fetch book details.');
+        navigation.goBack();
+      }
+    } catch (error) {
+      console.error('Error fetching bookId:', error);
+      Alert.alert('Error', 'Failed to fetch book details.');
+      navigation.goBack();
+    }
+  };
 
   const handleSubmitReview = async () => {
+    console.log('Submitting review for bookId:', bookId); // Debugging log
+
+    if (!bookId) {
+      return Alert.alert('Error', 'Book information is missing or invalid.');
+    }
+
     if (rating === 0) {
       return Alert.alert('Error', 'Please select a rating before submitting.');
     }
@@ -28,24 +66,23 @@ const WriteReview = ({ route, navigation }) => {
     if (reviewText.trim().length < 5) {
       return Alert.alert('Error', 'Please write a more detailed review.');
     }
-    
+
     try {
       setLoading(true);
-      
-      // In a real app, this would be an API call to save the review
-      // For demo purposes, we'll just simulate a delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Success alert
+
+      // Dispatch action
+      await dispatch(
+        submitReview({
+          bookId,
+          rating,
+          comment: reviewText,
+        })
+      );
+
       Alert.alert(
         'Review Submitted',
         'Thank you for your feedback!',
-        [
-          { 
-            text: 'OK', 
-            onPress: () => navigation.goBack()
-          }
-        ]
+        [{ text: 'OK', onPress: () => navigation.goBack() }]
       );
     } catch (error) {
       console.error('Error submitting review:', error);
@@ -62,18 +99,18 @@ const WriteReview = ({ route, navigation }) => {
         showBackButton={true} 
         onBackPress={() => navigation.goBack()} 
       />
-      
+
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.productInfo}>
           <View style={styles.productImagePlaceholder}>
-            <Text style={styles.productImageText}>{product?.title.charAt(0)}</Text>
+            <Text style={styles.productImageText}>{product?.title?.charAt(0)}</Text>
           </View>
           <View style={styles.productDetails}>
             <Text style={styles.productTitle}>{product?.title}</Text>
             <Text style={styles.orderInfo}>Order #{orderNumber}</Text>
           </View>
         </View>
-        
+
         <View style={styles.ratingContainer}>
           <Text style={styles.sectionTitle}>Rate this product</Text>
           <View style={styles.starsContainer}>
@@ -100,7 +137,7 @@ const WriteReview = ({ route, navigation }) => {
               rating === 4 ? 'Very Good' : 'Excellent'}
           </Text>
         </View>
-        
+
         <View style={styles.reviewContainer}>
           <Text style={styles.sectionTitle}>Write your review</Text>
           <TextInput
@@ -116,7 +153,7 @@ const WriteReview = ({ route, navigation }) => {
             {reviewText.length} / 500 characters
           </Text>
         </View>
-        
+
         <TouchableOpacity 
           style={[
             styles.submitButton,
@@ -208,11 +245,6 @@ const styles = StyleSheet.create({
   },
   starFilled: {
     color: COLORS.warning,
-  },
-  ratingText: {
-    ...FONTS.medium,
-    color: COLORS.onBackground,
-    marginTop: SIZES.small,
   },
   reviewContainer: {
     backgroundColor: '#fff',

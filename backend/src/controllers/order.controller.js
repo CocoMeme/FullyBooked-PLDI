@@ -114,3 +114,20 @@ exports.updateOrderStatus = async (req, res) => {
     res.status(500).json({ message: 'Failed to update order status' });
   }
 };
+
+const getOrderDetails = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const order = await Order.findById(orderId).populate('items.book'); // Ensure books are populated
+    console.log('Order details:', order); // Debug log
+
+    if (!order) {
+      return res.status(404).json({ message: 'Order not found' });
+    }
+
+    res.status(200).json(order);
+  } catch (error) {
+    console.error('Error fetching order details:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};

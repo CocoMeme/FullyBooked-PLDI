@@ -9,4 +9,6 @@ router.get('/all', verifyAdmin, getAllOrders);
 router.get('/my-orders', verifyCustomer, getMyOrders); 
 router.put('/update-status/:id', verifyAdmin, updateOrderStatus);
 
+router.get('/:orderId', verifyCustomer, getOrderDetails);
+
 module.exports = router;

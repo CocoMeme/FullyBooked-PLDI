@@ -25,13 +25,11 @@ const OrderDetails = ({ route, navigation }) => {
   const fetchOrderDetails = async () => {
     try {
       setLoading(true);
-      // In a real app, you would fetch detailed order information from your API
-      // For now, we'll just use the order data passed in via route params
-      
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 800));
-      
-      setOrderDetails(order);
+  
+      // Replace with your actual API endpoint
+      const response = await axios.get(`/api/orders/${order.id}`);
+      console.log('Order details fetched:', response.data); // Debug log
+      setOrderDetails(response.data);
     } catch (error) {
       console.error('Error fetching order details:', error);
       Alert.alert('Error', 'Unable to load order details. Please try again.');
@@ -39,7 +37,7 @@ const OrderDetails = ({ route, navigation }) => {
       setLoading(false);
     }
   };
-
+  
   // Format date to readable format
   const formatDate = (dateString) => {
     const options = { year: 'numeric', month: 'long', day: 'numeric' };

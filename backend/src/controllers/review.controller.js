@@ -15,6 +15,7 @@ const submitReview = async (req, res) => {
     const userId = req.user._id; // Assuming req.user is set by authentication middleware
 
     // Check if the book exists
+    console.log('Received book from params:',bookId); // Debug log to check bookId
     const book = await Book.findById(bookId);
     if (!book) {
       return res.status(404).json({ message: "Book not found" });
