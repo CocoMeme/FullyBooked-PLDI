@@ -1,10 +1,11 @@
 const express = require('express');
-const { submitReview, getReviews, updateReview, deleteReview, validateReview} = require('../controllers/review.controller');  // Import the controller functions
+const { submitReview, getReviews, getAllReviews, updateReview, deleteReview} = require('../controllers/review.controller');  // Import the controller functions
+const verifyTokenAndRole = require('../middleware/verifyToken');
 const router = express.Router();
 
-router.get('/validate-purchase/:bookId/:email', validateReview);
-router.post('/:bookId', submitReview);
+router.post('/:bookId',verifyTokenAndRole('customer'), submitReview);
 router.get('/:bookId', getReviews);
+router.get('/',getAllReviews);
 router.put('/:reviewId', updateReview);
 router.delete('/:reviewId', deleteReview);
 

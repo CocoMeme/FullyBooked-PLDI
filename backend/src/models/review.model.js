@@ -6,14 +6,15 @@ const reviewSchema = new mongoose.Schema({
     ref: 'Book',
     required: true,
   },
-  email: {
-    type: String,
+  user: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
     required: true,
   },
   rating: {
     type: Number,
     required: true,
-    min: 0,
+    min: 1,
     max: 5,
   },
   comment: {
@@ -30,6 +31,4 @@ const reviewSchema = new mongoose.Schema({
   },
 });
 
-const Review = mongoose.model('Review', reviewSchema);
-
-module.exports = Review;
+module.exports = mongoose.model('Review', reviewSchema);

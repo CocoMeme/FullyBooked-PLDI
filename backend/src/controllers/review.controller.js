@@ -8,8 +8,11 @@ const Order = require('../models/order.model');
 
 const submitReview = async (req, res) => {
   try {
-    const { rating, comment, email } = req.body;
+    console.log('req.user:', req.user); // Debug log to check req.user
+
+    const { rating, comment } = req.body;
     const { bookId } = req.params;
+    const userId = req.user._id; // Assuming req.user is set by authentication middleware
 
     // Check if the book exists
     const book = await Book.findById(bookId);
@@ -18,7 +21,12 @@ const submitReview = async (req, res) => {
     }
 
     // Create and save the review
-    const newReview = await new Review({ bookId, rating, comment, email }).save();
+    const newReview = await new Review({
+      bookId,
+      user: userId,
+      rating,
+      comment,
+    }).save();
 
     // Update the book's reviews and average rating
     book.reviews.push(newReview._id);
@@ -28,11 +36,10 @@ const submitReview = async (req, res) => {
 
     res.status(201).json({ message: "Review submitted successfully", review: newReview });
   } catch (error) {
-    console.error(error);
+    console.error('Error submitting review:', error.message);
     res.status(500).json({ message: "Server error" });
   }
 };
-
 
 // Controller function to fetch reviews for a book
 const getReviews = async (req, res) => {
@@ -94,56 +101,31 @@ const deleteReview = async (req, res) => {
   }
 };
 
-const validateReview = async (req, res) => {
-  const { bookId, email } = req.params;
 
+const getAllReviews = async (req, res) => {
   try {
-    // Ensure both bookId and email are provided
-    if (!bookId || !email) {
-      return res.status(400).json({ canReview: false, message: 'Invalid parameters.' });
+    // Fetch all reviews and populate the associated book and user details
+    const reviews = await Review.find()
+      .populate('bookId', 'title category') // Populate book details
+      .populate('user', 'name email'); // Populate user details
+
+    if (!reviews || reviews.length === 0) {
+      return res.status(404).json({ message: "No reviews found." });
     }
 
-    // Find an order with matching email and productIds including bookId
-    const userOrder = await Order.findOne({
-      email: email,
-      productIds: bookId, // Check if productIds includes the bookId
-      // status: { $ne: 'Cancelled' }, // Optional: exclude cancelled orders
-    });
-
-    if (userOrder) {
-      return res.status(200).json({ canReview: true });
-    } else {
-      return res.status(200).json({ canReview: false });
-    }
+    res.status(200).json({ reviews });
   } catch (error) {
-    console.error('Error validating purchase:', error.message);
-    return res.status(500).json({ canReview: false, message: 'Server error.' });
-  }
-}
-
-
-exports.getCurrentUser = async (req, res) => {
-  try {
-    const userId = req.user._id; // Assuming you're using middleware to set req.user
-    const user = await User.findById(userId).select('_id username email'); // Select necessary fields
-
-    if (!user) {
-      return res.status(404).json({ message: 'User not found.' });
-    }
-
-    res.status(200).json({ user });
-  } catch (error) {
-    console.error('Error fetching current user:', error.message);
-    res.status(500).json({ message: 'Internal server error.' });
+    console.error('Error fetching all reviews:', error.message);
+    res.status(500).json({ message: "Failed to fetch reviews." });
   }
 };
 
 module.exports = {
   submitReview,
   getReviews,
+  getAllReviews,
   updateReview,
   deleteReview,
-  validateReview
 };
 
 
