@@ -18,6 +18,8 @@ import { COLORS, FONTS, SIZES } from '../../constants/theme';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Picker } from '@react-native-picker/picker';
 
+const API_URL = 'http://192.168.168.70:3000/api';
+
 const UserManagement = () => {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -32,17 +34,22 @@ const UserManagement = () => {
   const fetchUsers = async () => {
     try {
       setLoading(true);
-      const token = await AsyncStorage.getItem('jwt');
-      if (!token) throw new Error('JWT token not found');
 
-      const response = await axios.get('http://192.168.112.70:3000/api/users', {
-        headers: { Authorization: `Bearer ${token}` },
+      const token = await AsyncStorage.getItem('jwt');
+      if (!token) {
+        throw new Error('JWT token not found');
+      }
+
+      const response = await axios.get(`${API_URL}/users`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
       });
 
       setUsers(response.data);
     } catch (error) {
-      console.error('Error fetching users:', error.response?.data || error.message);
-      Alert.alert('Error', error.response?.data?.message || 'Failed to load users');
+      console.error('Error fetching users:', error.message || error.response?.data);
+      Alert.alert('Error', 'Failed to load users. Please check your network connection and API URL.');
     } finally {
       setLoading(false);
     }
@@ -62,7 +69,7 @@ const UserManagement = () => {
               const token = await AsyncStorage.getItem('jwt');
               if (!token) throw new Error('JWT token not found');
 
-              await axios.delete(`http://192.168.112.70:3000/api/users/${userId}`, {
+              await axios.delete(`${API_URL}/users/${userId}`, {
                 headers: { Authorization: `Bearer ${token}` },
               });
 
@@ -86,7 +93,7 @@ const UserManagement = () => {
       if (!token) throw new Error('JWT token not found');
 
       const response = await axios.put(
-        `http://192.168.112.70:3000/api/users/update/${selectedUser._id}`,
+        `${API_URL}/users/update/${selectedUser._id}`,
         { role: updatedRole },
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -150,7 +157,7 @@ const UserManagement = () => {
       <Header 
         title="User Management" 
         showBackButton={true}
-        rightComponent={(
+        rightComponent={(~
           <TouchableOpacity onPress={() => Alert.alert('Info', 'Add user feature coming soon')}>
             <Ionicons name="person-add" size={24} color={COLORS.primary} />
           </TouchableOpacity>
