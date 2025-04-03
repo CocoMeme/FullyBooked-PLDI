@@ -39,7 +39,10 @@ exports.loginUser = async (req, res, next) => {
                 id: user._id,
                 username: user.username,
                 email: user.email,
-                role: user.role
+                role: user.role,
+                phone: user.phone || '',
+                avatar: user.avatar || '',
+                address: user.address || {}
             }
         });
     } catch (error) {
@@ -79,7 +82,10 @@ exports.googleAuth = async (req, res, next) => {
                 id: user._id,
                 username: user.username,
                 email: user.email,
-                role: user.role
+                role: user.role,
+                phone: user.phone || '',
+                avatar: user.avatar || '',
+                address: user.address || {}
             }
         });
     } catch (error) {
@@ -118,7 +124,10 @@ exports.registerUser = async (req, res, next) => {
                 id: newUser._id,
                 username: newUser.username,
                 email: newUser.email,
-                role: newUser.role
+                role: newUser.role,
+                phone: newUser.phone || '',
+                avatar: newUser.avatar || '',
+                address: newUser.address || {}
             }
         });
     } catch (error) {
@@ -154,7 +163,14 @@ exports.loginAdmin = async (req, res) => {
         return res.status(200).json({
             message: "Authentication successful",
             token,
-            user: { username: admin.username, role: admin.role },
+            user: { 
+                id: admin._id,
+                username: admin.username, 
+                role: admin.role,
+                phone: admin.phone || '',
+                avatar: admin.avatar || '',
+                address: admin.address || {}  
+            },
         });
     } catch (error) {
         console.error("Failed to login as admin", error);
@@ -339,7 +355,10 @@ exports.getFirebaseToken = async (req, res, next) => {
                 id: user._id,
                 username: user.username,
                 email: user.email,
-                role: user.role
+                role: user.role,
+                phone: user.phone || '',
+                avatar: user.avatar || '',
+                address: user.address || {}
             }
         });
     } catch (error) {

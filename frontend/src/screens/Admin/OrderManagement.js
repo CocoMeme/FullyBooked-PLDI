@@ -28,15 +28,36 @@ const OrderManagement = ({ navigation }) => {
   const fetchOrders = async () => {
     try {
       setLoading(true);
+      
+      // Get the JWT token from AsyncStorage
+      const token = await AsyncStorage.getItem('jwt');
+      
+      if (!token) {
+        Alert.alert('Authentication Error', 'You need to be logged in to access this feature');
+        setLoading(false);
+        return;
+      }
+      
       const response = await axios.get(`${API_URL}orders/all`, {
         headers: {
+          'Authorization': `Bearer ${token}`,
           'Cache-Control': 'no-cache', // Prevent caching
         },
       });
+      
       setOrders(response.data.orders || []); // Ensure orders is always an array
+      console.log('Orders fetched successfully:', response.data.orders?.length || 0, 'orders');
     } catch (error) {
       console.error('Error fetching orders:', error);
-      Alert.alert('Error', 'Failed to load orders');
+      
+      // More specific error message based on status code
+      if (error.response?.status === 401) {
+        Alert.alert('Authentication Error', 'You are not authorized to access this data. Please log in again.');
+      } else if (error.response?.status === 403) {
+        Alert.alert('Permission Error', 'You do not have permission to view orders. Admin access required.');
+      } else {
+        Alert.alert('Error', 'Failed to load orders. Please try again later.');
+      }
     } finally {
       setLoading(false);
     }

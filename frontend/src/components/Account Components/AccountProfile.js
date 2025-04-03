@@ -71,6 +71,17 @@ const AccountProfile = ({ onComplete }) => {
       };
       
       console.log('Combined user data:', combinedUserData);
+      
+      // Debug log to check if fields are properly populated
+      console.log('Debug - Account Profile fields:', {
+        id: combinedUserData.id,
+        username: combinedUserData.username,
+        email: combinedUserData.email,
+        phone: combinedUserData.phone,
+        avatar: combinedUserData.avatar, 
+        address: combinedUserData.address
+      });
+      
       setUserData(combinedUserData);
     } catch (error) {
       console.error('Error loading user data:', error);

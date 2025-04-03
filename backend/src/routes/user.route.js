@@ -14,7 +14,7 @@ const {
     updateUserProfile
 } = require('../controllers/user.controller');
 const verifyAdminToken = require('../middleware/verifyAdminToken');
-const verifyToken = require('../middleware/verifyToken');
+const { verifyToken } = require('../middleware/verifyToken');
 const router = express.Router();
 
 // Public routes
