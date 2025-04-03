@@ -47,6 +47,9 @@ const NotificationStack = () => (
 const AccountStack = () => (
   <Stack.Navigator screenOptions={{ headerShown: false }}>
     <Stack.Screen name="AccountScreen" component={AccountScreen} />
+    <Stack.Screen name="MyOrders" component={require('../screens/Account Menu Screens/MyOrdersScreen').default} />
+    <Stack.Screen name="OrderDetails" component={require('../components/Account Components/OrderDetails').default} />
+    <Stack.Screen name="WriteReview" component={require('../components/Account Components/WriteReview').default} />
     {/* <Stack.Screen name="EditProfile" component={EditProfileScreen} /> */}
     {/* Add more profile-related screens here later */}
   </Stack.Navigator>

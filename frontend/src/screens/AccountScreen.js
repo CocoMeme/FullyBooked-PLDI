@@ -138,8 +138,8 @@ const AccountScreen = () => {
   };
 
   const navigateToOrderHistory = () => {
-    // Navigate to order history screen
-    Alert.alert('Coming Soon', 'Order history will be available in the next update.');
+    // Navigate to the order history screen
+    navigation.navigate('MyOrders');
   };
 
   const navigateToSettings = () => {
