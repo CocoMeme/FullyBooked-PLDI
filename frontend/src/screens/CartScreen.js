@@ -8,7 +8,9 @@ import {
   TouchableOpacity,
   SafeAreaView,
   ActivityIndicator,
-  Alert
+  Alert,
+  Modal,
+  ScrollView
 } from 'react-native';
 import { COLORS, FONTS, SIZES } from '../constants/theme';
 import Button from '../components/Button';
@@ -16,7 +18,7 @@ import Header from '../components/Header';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import baseURL from '../assets/common/baseurl';
-import { AntDesign, MaterialIcons } from '@expo/vector-icons';
+import { AntDesign, MaterialIcons, FontAwesome } from '@expo/vector-icons';
 import { useDispatch } from 'react-redux';
 import { clearCart as clearCartAction, removeFromCart, updateCartItemQuantity } from '../redux/actions/cartActions';
 
@@ -26,6 +28,8 @@ const CartScreen = ({ navigation }) => {
   const [totalAmount, setTotalAmount] = useState(0);
   const [totalDiscount, setTotalDiscount] = useState(0);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState('COD'); // Default payment method
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
   const dispatch = useDispatch();
 
   // Load cart items when screen is focused
@@ -189,93 +193,68 @@ const CartScreen = ({ navigation }) => {
       const token = await AsyncStorage.getItem('jwt');
       if (!token) {
         console.log('Token not found in AsyncStorage');
-        Alert.alert('Error', 'User is not authenticated. Please log in.');
+        Alert.alert('Error', 'Please log in to place an order');
         setCheckoutLoading(false);
+        navigation.navigate('Login');
         return;
       }
-      console.log('Retrieved token:', token);
 
       // Set Authorization header
       const config = {
         headers: {
           Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
         },
       };
       
-      // First, check the user's role
-      try {
-        const userResponse = await axios.get(
-          `${baseURL}users/me`,
-          config
-        );
-        console.log('User response:', userResponse.data); // Debug log to verify user data
+      // Prepare order data directly without separate user check
+      const orderData = {
+        products: cartItems.map((item) => ({
+          productId: item._id,
+          quantity: item.quantity,
+          price: item.discountPrice || item.price,
+        })),
+        paymentMethod: paymentMethod, // Use the selected payment method
+      };
+
+      console.log('Placing order with data:', orderData);
+
+      // Place order directly
+      const response = await axios.post(
+        `${baseURL}orders/place`,
+        orderData,
+        config
+      );
       
-        const userId = userResponse.data?.id;
-        const userRole = userResponse.data?.role;
-      
-        if (!userId) {
-          Alert.alert('Error', 'Failed to fetch user information. Please log in to proceed.');
-          setCheckoutLoading(false);
-          return;
-        }
-        
-        // Debug user role - this helps troubleshoot permission issues
-        console.log('User role:', userRole);
-        
-        // Check if user role is not customer (case insensitive)
-        if (userRole && userRole.toLowerCase() !== 'customer') {
-          Alert.alert('Access Denied', 'Your account does not have customer privileges. Please contact support.');
-          setCheckoutLoading(false);
-          return;
-        }
+      console.log('Order response:', response.data);
 
-        const orderData = {
-          userId,
-          products: cartItems.map((item) => ({
-            productId: item._id,
-            quantity: item.quantity,
-            price: item.discountPrice || item.price,
-          })),
-          paymentMethod: 'COD',
-        };
+      if (response.status === 201) {
+        // Clear cart after successful order
+        dispatch(clearCartAction());
+        setCartItems([]);
+        setTotalAmount(0);
 
-        // Place order - FIX: Use the correct endpoint path
-        const response = await axios.post(
-          `${baseURL}orders/place`,
-          orderData,
-          config
-        );
-        console.log('Order response:', response.data); // Debug log to verify order placement
-
-        if (response.status === 201) {
-          // Use Redux action to clear cart after successful order
-          dispatch(clearCartAction());
-          setCartItems([]);
-
-          Alert.alert('Success', 'Order placed successfully');
-          navigation.navigate('OrderDetails', { orderId: response.data.order._id });
-        }
-      } catch (error) {
-        handleAuthError(error);
+        Alert.alert('Success', 'Order placed successfully');
+        navigation.navigate('OrderDetails', { orderId: response.data.order._id });
       }
     } catch (error) {
-      console.error('Error during checkout:', error.response?.data || error.message);
-      Alert.alert('Error', error.response?.data?.message || 'Failed to place order. Please try again.');
+      handleOrderError(error);
     } finally {
       setCheckoutLoading(false);
     }
   };
   
-  // Helper function to handle authentication errors
-  const handleAuthError = (error) => {
+  // Helper function to handle order errors
+  const handleOrderError = (error) => {
+    console.error('Error during checkout:', error.response?.data || error.message);
+    
     if (error.response?.status === 401) {
-      Alert.alert('Error', 'Session expired. Please log in again.');
+      Alert.alert('Session Expired', 'Please log in again to continue.');
       navigation.navigate('Login');
     } else if (error.response?.status === 403) {
-      Alert.alert('Error', 'Access denied. Your account may not have customer privileges. Please contact support.');
+      Alert.alert('Access Denied', 'Your account does not have customer privileges. Please contact support.');
     } else {
-      console.error('Error fetching user data:', error);
-      Alert.alert('Error', 'Failed to fetch user information. Please try again.');
+      Alert.alert('Error', error.response?.data?.message || 'Failed to place order. Please try again.');
     }
   };
 
@@ -398,6 +377,22 @@ const CartScreen = ({ navigation }) => {
               </View>
             )}
             
+            {/* Payment method selection */}
+            <TouchableOpacity 
+              style={styles.paymentMethodSelector}
+              onPress={() => setShowPaymentModal(true)}
+            >
+              <Text style={styles.paymentMethodLabel}>Payment Method:</Text>
+              <View style={styles.paymentMethodValue}>
+                <Text style={styles.paymentMethodText}>
+                  {paymentMethod === 'COD' ? 'Cash On Delivery' : 
+                   paymentMethod === 'Card' ? 'Credit/Debit Card' : 
+                   paymentMethod === 'PayPal' ? 'PayPal' : 'Bank Transfer'}
+                </Text>
+                <MaterialIcons name="keyboard-arrow-down" size={20} color={COLORS.primary} />
+              </View>
+            </TouchableOpacity>
+            
             <Button 
               title={checkoutLoading ? 'Processing...' : 'Proceed to Checkout'} 
               onPress={handleCheckout}
@@ -405,6 +400,96 @@ const CartScreen = ({ navigation }) => {
               disabled={checkoutLoading}
             />
           </View>
+          
+          {/* Payment Method Modal */}
+          <Modal
+            visible={showPaymentModal}
+            transparent={true}
+            animationType="slide"
+            onRequestClose={() => setShowPaymentModal(false)}
+          >
+            <View style={styles.modalOverlay}>
+              <View style={styles.modalContent}>
+                <Text style={styles.modalTitle}>Select Payment Method</Text>
+                
+                <ScrollView style={styles.paymentOptions}>
+                  {/* Cash On Delivery Option */}
+                  <TouchableOpacity 
+                    style={[styles.paymentOption, paymentMethod === 'COD' && styles.selectedPaymentOption]}
+                    onPress={() => {
+                      setPaymentMethod('COD');
+                      setShowPaymentModal(false);
+                    }}
+                  >
+                    <View style={styles.paymentIconContainer}>
+                      <FontAwesome name="money" size={24} color={paymentMethod === 'COD' ? COLORS.white : COLORS.primary} />
+                    </View>
+                    <View style={styles.paymentDetails}>
+                      <Text style={[styles.paymentOptionTitle, paymentMethod === 'COD' && styles.selectedPaymentText]}>Cash On Delivery</Text>
+                      <Text style={[styles.paymentOptionDesc, paymentMethod === 'COD' && styles.selectedPaymentText]}>Pay when you receive your order</Text>
+                    </View>
+                  </TouchableOpacity>
+                  
+                  {/* Credit/Debit Card Option */}
+                  <TouchableOpacity 
+                    style={[styles.paymentOption, paymentMethod === 'Card' && styles.selectedPaymentOption]}
+                    onPress={() => {
+                      setPaymentMethod('Card');
+                      setShowPaymentModal(false);
+                    }}
+                  >
+                    <View style={styles.paymentIconContainer}>
+                      <FontAwesome name="credit-card" size={24} color={paymentMethod === 'Card' ? COLORS.white : COLORS.primary} />
+                    </View>
+                    <View style={styles.paymentDetails}>
+                      <Text style={[styles.paymentOptionTitle, paymentMethod === 'Card' && styles.selectedPaymentText]}>Credit/Debit Card</Text>
+                      <Text style={[styles.paymentOptionDesc, paymentMethod === 'Card' && styles.selectedPaymentText]}>Pay securely with your card</Text>
+                    </View>
+                  </TouchableOpacity>
+                  
+                  {/* PayPal Option */}
+                  <TouchableOpacity 
+                    style={[styles.paymentOption, paymentMethod === 'PayPal' && styles.selectedPaymentOption]}
+                    onPress={() => {
+                      setPaymentMethod('PayPal');
+                      setShowPaymentModal(false);
+                    }}
+                  >
+                    <View style={styles.paymentIconContainer}>
+                      <FontAwesome name="paypal" size={24} color={paymentMethod === 'PayPal' ? COLORS.white : COLORS.primary} />
+                    </View>
+                    <View style={styles.paymentDetails}>
+                      <Text style={[styles.paymentOptionTitle, paymentMethod === 'PayPal' && styles.selectedPaymentText]}>PayPal</Text>
+                      <Text style={[styles.paymentOptionDesc, paymentMethod === 'PayPal' && styles.selectedPaymentText]}>Pay with your PayPal account</Text>
+                    </View>
+                  </TouchableOpacity>
+                  
+                  {/* Bank Transfer Option */}
+                  <TouchableOpacity 
+                    style={[styles.paymentOption, paymentMethod === 'Bank Transfer' && styles.selectedPaymentOption]}
+                    onPress={() => {
+                      setPaymentMethod('Bank Transfer');
+                      setShowPaymentModal(false);
+                    }}
+                  >
+                    <View style={styles.paymentIconContainer}>
+                      <FontAwesome name="bank" size={24} color={paymentMethod === 'Bank Transfer' ? COLORS.white : COLORS.primary} />
+                    </View>
+                    <View style={styles.paymentDetails}>
+                      <Text style={[styles.paymentOptionTitle, paymentMethod === 'Bank Transfer' && styles.selectedPaymentText]}>Bank Transfer</Text>
+                      <Text style={[styles.paymentOptionDesc, paymentMethod === 'Bank Transfer' && styles.selectedPaymentText]}>Pay via bank transfer</Text>
+                    </View>
+                  </TouchableOpacity>
+                </ScrollView>
+                
+                <Button 
+                  title="Cancel" 
+                  onPress={() => setShowPaymentModal(false)}
+                  style={styles.cancelButton}
+                />
+              </View>
+            </View>
+          </Modal>
         </>
       )}
     </SafeAreaView>
@@ -584,6 +669,96 @@ const styles = StyleSheet.create({
     ...FONTS.bold,
     fontSize: SIZES.medium,
     color: COLORS.darkGreen,
+  },
+  // Payment method selector styles
+  paymentMethodSelector: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: SIZES.small,
+    paddingHorizontal: SIZES.medium,
+    backgroundColor: COLORS.lightBackground,
+    borderRadius: SIZES.base,
+    marginBottom: SIZES.medium,
+  },
+  paymentMethodLabel: {
+    ...FONTS.medium,
+    fontSize: SIZES.medium,
+    color: COLORS.onBackground,
+  },
+  paymentMethodValue: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  paymentMethodText: {
+    ...FONTS.medium,
+    fontSize: SIZES.medium,
+    color: COLORS.primary,
+    marginRight: SIZES.small,
+  },
+  // Payment method modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    width: '80%',
+    backgroundColor: '#fff',
+    borderRadius: SIZES.base,
+    padding: SIZES.medium,
+    maxHeight: '70%',
+  },
+  modalTitle: {
+    ...FONTS.bold,
+    fontSize: SIZES.large,
+    marginBottom: SIZES.medium,
+    textAlign: 'center',
+  },
+  paymentOptions: {
+    maxHeight: 300,
+  },
+  paymentOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: SIZES.small,
+    paddingHorizontal: SIZES.medium,
+    borderRadius: SIZES.base,
+    marginBottom: SIZES.small,
+    backgroundColor: COLORS.lightBackground,
+  },
+  selectedPaymentOption: {
+    backgroundColor: COLORS.primary,
+  },
+  paymentIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: COLORS.white,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: SIZES.small,
+  },
+  paymentDetails: {
+    flex: 1,
+  },
+  paymentOptionTitle: {
+    ...FONTS.medium,
+    fontSize: SIZES.medium,
+    color: COLORS.onBackground,
+  },
+  paymentOptionDesc: {
+    ...FONTS.regular,
+    fontSize: SIZES.small,
+    color: COLORS.onBackground,
+    opacity: 0.8,
+  },
+  selectedPaymentText: {
+    color: COLORS.white,
+  },
+  cancelButton: {
+    marginTop: SIZES.medium,
   },
 });
 
