@@ -5,7 +5,6 @@ import {
   StyleSheet, 
   SafeAreaView, 
   TouchableOpacity,
-  ScrollView,
   ActivityIndicator,
   Alert
 } from 'react-native';
@@ -48,6 +47,8 @@ const MyOrdersScreen = ({ navigation }) => {
       if (!token) {
         console.log('No authentication token found');
         setOrders([]);
+        Alert.alert('Error', 'You are not logged in. Please log in to view your orders.');
+        navigation.navigate('Login'); // Redirect to login if no token
         return;
       }
   
@@ -63,58 +64,34 @@ const MyOrdersScreen = ({ navigation }) => {
       // Make the API call to fetch user orders
       const response = await axios.get(`${baseURL}orders/my-orders`, config);
   
-      console.log('Orders API response status:', response.status);
-      console.log('Orders response data:', response.data);
-  
       if (response.status === 200) {
-        // Access the orders array from response.data.orders
         const ordersData = response.data.orders;
-  
-        if (Array.isArray(ordersData) && ordersData.length === 0) {
-          console.log('No orders found for user');
-          setOrders([]);
-          return;
-        }
   
         // Transform the data to match the expected structure
         const formattedOrders = ordersData.map(order => ({
           id: order._id,
           orderNumber: order.orderNumber || `ORD-${Math.floor(Math.random() * 100000)}`,
           date: order.createdAt,
-          createdAt: order.createdAt,
           status: (order.status || 'processing').toLowerCase(),
           items: Array.isArray(order.items) ? order.items.map(item => ({
             id: item._id,
-            book: item.book,
             title: item.book?.title || 'Book',
             quantity: item.quantity || 1,
             price: item.price || 0,
           })) : [],
-          paymentMethod: order.paymentMethod || 'Not specified',
-          total: order.totalAmount || 
-            (Array.isArray(order.items) ? 
-              order.items.reduce((sum, item) => sum + ((item.price || 0) * (item.quantity || 1)), 0) : 0),
-          reviewed: Boolean(order.reviewed),
-          estimatedDeliveryDate: order.estimatedDeliveryDate,
-          shippedAt: order.shippedAt,
-          deliveredAt: order.deliveredAt,
+          total: order.totalAmount || 0,
         }));
   
-        console.log(`Formatted ${formattedOrders.length} orders`);
         setOrders(formattedOrders);
       } else {
-        console.error('Unexpected response status:', response.status);
         Alert.alert('Error', 'Failed to fetch orders. Please try again.');
       }
     } catch (error) {
-      console.error('Error fetching orders:', error);
-      console.error('Error details:', error.response?.data || error.message);
+      console.error('Error fetching orders:', error.response?.data || error.message);
   
       if (error.response?.status === 401) {
         Alert.alert('Session Expired', 'Please log in again to view your orders.');
-      } else if (error.response?.status === 404) {
-        console.error('API endpoint not found. Check your routes configuration.');
-        Alert.alert('Error', 'Order history service is currently unavailable. Please try again later.');
+        navigation.navigate('Login'); // Redirect to login if session expired
       } else {
         Alert.alert('Error', 'Failed to fetch your orders. Please try again later.');
       }
@@ -124,7 +101,7 @@ const MyOrdersScreen = ({ navigation }) => {
       setLoading(false);
     }
   };
-    
+
   const renderTabContent = () => {
     if (loading) {
       return (
@@ -186,8 +163,8 @@ const MyOrdersScreen = ({ navigation }) => {
           </Text>
         </TouchableOpacity>
       </View>
-  
-      {/* Replace ScrollView with a simple View */}
+      
+      {/* Replace ScrollView with View */}
       <View style={styles.contentContainer}>
         {renderTabContent()}
       </View>

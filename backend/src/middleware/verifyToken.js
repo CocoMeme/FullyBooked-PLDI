@@ -52,40 +52,32 @@ const verifyTokenAndRole = (requiredRole) => async (req, res, next) => {
 
 // Simple middleware that only verifies token without checking role
 const verifyToken = async (req, res, next) => {
-  try {
-    console.log('Verifying token without role check');
-    const authHeader = req.headers.authorization;
+  let token;
 
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      console.log('Authorization header missing or invalid:', authHeader);
-      return res.status(401).json({ message: 'Authorization token is required' });
+  if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
+    try {
+      // Extract token from the Authorization header
+      token = req.headers.authorization.split(' ')[1];
+
+      // Verify the token
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+      // Find the user and attach it to the request
+      const user = await User.findById(decoded.id).select('-password');
+      if (!user) {
+        return res.status(401).json({ message: 'Unauthorized. User not found.' });
+      }
+
+      req.user = user; // Attach user to the request
+      next();
+    } catch (error) {
+      console.error('Token verification failed:', error);
+      return res.status(401).json({ message: 'Unauthorized. Invalid token.' });
     }
-
-    const token = authHeader.split(' ')[1];
-    console.log('Token received:', token.substring(0, 10) + '...');
-    
-    const decoded = jwt.verify(token, JWT_SECRET);
-    console.log('Decoded token:', decoded);
-
-    const user = await User.findById(decoded.id);
-    if (!user) {
-      console.log('User not found with id:', decoded.id);
-      return res.status(404).json({ message: 'User not found' });
-    }
-    
-    console.log('User found:', {
-      id: user._id,
-      role: user.role
-    });
-
-    req.user = user;
-    console.log('Authentication successful, proceeding to route handler');
-    next();
-  } catch (error) {
-    console.error('Error in verifyToken middleware:', error);
-    return res.status(403).json({ message: 'Invalid or expired token.' });
+  } else {
+    return res.status(401).json({ message: 'Unauthorized. No token provided.' });
   }
 };
 
+module.exports = verifyToken;
 module.exports = verifyTokenAndRole;
-module.exports.verifyToken = verifyToken;
