@@ -83,10 +83,10 @@ const OrderManagement = ({ navigation }) => {
       'Update Order Status',
       'Select new status',
       [
-        { text: 'Pending', onPress: () => updateOrderStatus(orderId, 'pending') },
-        { text: 'Processing', onPress: () => updateOrderStatus(orderId, 'processing') },
-        { text: 'Delivered', onPress: () => updateOrderStatus(orderId, 'delivered') },
-        { text: 'Cancelled', onPress: () => updateOrderStatus(orderId, 'cancelled') },
+        { text: 'Pending', onPress: () => updateOrderStatus(orderId, 'Pending') },
+        { text: 'Shipped', onPress: () => updateOrderStatus(orderId, 'Shipped') },
+        { text: 'Delivered', onPress: () => updateOrderStatus(orderId, 'Delivered') },
+        { text: 'Cancelled', onPress: () => updateOrderStatus(orderId, 'Cancelled') },
         { text: 'Cancel', style: 'cancel' }
       ]
     );

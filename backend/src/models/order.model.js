@@ -32,8 +32,8 @@ const orderSchema = new mongoose.Schema(
       },
       status: {
         type: String,
-        enum: ['pending', 'shipped', 'delivered', 'cancelled'],
-        default: 'pending',
+        enum: ['Pending', 'Shipped', 'Delivered', 'Cancelled'],
+        default: 'Pending',
       },
       notificationSent: {
         type: Boolean,
@@ -46,7 +46,7 @@ const orderSchema = new mongoose.Schema(
 // Middleware to handle status updates
 orderSchema.pre('save', function(next) {
     // If order is delivered, set deliveredAt timestamp
-    if (this.status === 'Delivered' && !this.deliveredAt) {
+    if (this.status === 'pelivered' && !this.deliveredAt) {
         this.deliveredAt = new Date();
     }
     next();
