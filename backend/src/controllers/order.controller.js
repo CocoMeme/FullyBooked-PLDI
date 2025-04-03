@@ -115,7 +115,7 @@ exports.updateOrderStatus = async (req, res) => {
   }
 };
 
-const getOrderDetails = async (req, res) => {
+exports.getOrderDetails = async (req, res) => {
   try {
     const { orderId } = req.params;
     const order = await Order.findById(orderId).populate('items.book'); // Ensure books are populated
