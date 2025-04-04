@@ -88,7 +88,18 @@ const BookDetails = ({ route, navigation }) => {
   };
 
   const handleAddToCart = () => {
-    dispatch(addToCart(book));
+    // Create a formatted cart item with all necessary information
+    const cartItem = {
+      product_id: book._id,
+      product_name: book.title,
+      product_price: book.price,
+      product_image: book.coverImage?.[0] || '',
+      quantity: 1,
+      // Include discountPrice if the book is on sale
+      ...(book.tag === 'Sale' && book.discountPrice && { discountPrice: book.discountPrice })
+    };
+    
+    dispatch(addToCart(cartItem));
     Alert.alert('Success', `${book.title} has been added to your cart.`);
   };
 
