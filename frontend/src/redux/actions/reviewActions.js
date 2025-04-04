@@ -25,3 +25,34 @@ export const submitReview = (reviewData) => async (dispatch) => {
     throw error;
   }
 };
+
+// Fetch reviews for a book
+export const fetchReviews = (bookId) => async (dispatch) => {
+  try {
+    dispatch({ type: types.FETCH_REVIEWS_REQUEST });
+
+    const response = await api.get(`/reviews/${bookId}`);
+    
+    dispatch({
+      type: types.FETCH_REVIEWS_SUCCESS,
+      payload: response.data.reviews || [], // Ensure we always have an array
+    });
+
+    return response.data.reviews || [];
+  } catch (error) {
+    // If it's a 404, we'll treat it as empty reviews
+    if (error.response?.status === 404) {
+      dispatch({
+        type: types.FETCH_REVIEWS_SUCCESS,
+        payload: [],
+      });
+      return [];
+    }
+    
+    dispatch({
+      type: types.FETCH_REVIEWS_FAILURE,
+      payload: error.response?.data?.message || 'Failed to fetch reviews',
+    });
+    throw error;
+  }
+};

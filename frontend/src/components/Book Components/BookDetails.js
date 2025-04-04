@@ -13,8 +13,9 @@ import {
   Animated,
   StatusBar
 } from 'react-native';
-import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import { addToCart } from '../../redux/actions/cartActions';
+import { fetchReviews } from '../../redux/actions/reviewActions';
 import { COLORS, FONTS, SIZES } from '../../constants/theme';
 import { Ionicons } from '@expo/vector-icons';
 import axios from 'axios';
@@ -30,9 +31,11 @@ const BookDetails = ({ route, navigation }) => {
   const [book, setBook] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeSlide, setActiveSlide] = useState(0);
-  const [reviews, setReviews] = useState([]);
   const scrollY = useRef(new Animated.Value(0)).current;
   const pagerRef = useRef(null);
+
+  // Get reviews from Redux state
+  const { reviews, loading: reviewsLoading } = useSelector(state => state.review);
 
   // Animation values
   const headerOpacity = scrollY.interpolate({
@@ -49,8 +52,8 @@ const BookDetails = ({ route, navigation }) => {
 
   useEffect(() => {
     fetchBookDetails();
-    fetchBookReviews();
-  }, [bookId]);
+    dispatch(fetchReviews(bookId));
+  }, [bookId, dispatch]);
 
   const fetchBookDetails = async () => {
     try {
@@ -65,25 +68,6 @@ const BookDetails = ({ route, navigation }) => {
       console.error('Error fetching book details:', error);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const fetchBookReviews = async () => {
-    try {
-      const response = await axios.get(`${baseURL}books/${bookId}/reviews`);
-      if (response.data.success) {
-        setReviews(response.data.reviews);
-      } else {
-        Alert.alert('Error', 'Failed to fetch book reviews');
-      }
-    } catch (error) {
-      if (error.response && error.response.status === 404) {
-        console.warn('No reviews found for this book.');
-        setReviews([]); // Set reviews to an empty array if not found
-      } else {
-        Alert.alert('Error', 'Failed to fetch book reviews');
-        console.error('Error fetching book reviews:', error);
-      }
     }
   };
 
@@ -119,6 +103,30 @@ const BookDetails = ({ route, navigation }) => {
 
   const formatPrice = (price) => {
     return typeof price === 'number' ? price.toFixed(2) : '0.00';
+  };
+
+  const renderStars = (rating) => {
+    const stars = [];
+    for (let i = 1; i <= 5; i++) {
+      stars.push(
+        <Ionicons
+          key={i}
+          name={i <= rating ? 'star' : 'star-outline'}
+          size={16}
+          color={COLORS.warning}
+          style={{ marginRight: 2 }}
+        />
+      );
+    }
+    return <View style={styles.starsContainer}>{stars}</View>;
+  };
+
+  const formatDate = (dateString) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
   };
 
   if (loading) {
@@ -234,16 +242,28 @@ const BookDetails = ({ route, navigation }) => {
 
           {/* Reviews Section */}
           <View style={styles.reviewsContainer}>
-            <Text style={styles.sectionTitle}>Reviews</Text>
-            {reviews.length > 0 ? (
+            <Text style={styles.sectionTitle}>Reviews ({reviews.length})</Text>
+            {reviewsLoading ? (
+              <ActivityIndicator size="small" color={COLORS.primary} />
+            ) : reviews.length > 0 ? (
               reviews.map((review, index) => (
                 <View key={index} style={styles.reviewItem}>
-                  <Text style={styles.reviewAuthor}>{review.author}</Text>
-                  <Text style={styles.reviewText}>{review.text}</Text>
+                  <View style={styles.reviewHeader}>
+                    <View style={styles.reviewUser}>
+                      <Text style={styles.reviewAuthor}>
+                        {review.user?.username || 'Anonymous'}
+                      </Text>
+                      <Text style={styles.reviewDate}>
+                        {formatDate(review.createdAt)}
+                      </Text>
+                    </View>
+                    {renderStars(review.rating)}
+                  </View>
+                  <Text style={styles.reviewText}>{review.comment}</Text>
                 </View>
               ))
             ) : (
-              <Text style={styles.noReviewsText}>No reviews available for this book.</Text>
+              <Text style={styles.noReviewsText}>No reviews yet. Be the first to review this book!</Text>
             )}
           </View>
 
@@ -461,11 +481,24 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 2,
   },
+  reviewHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: SIZES.small,
+  },
+  reviewUser: {
+    flexDirection: 'column',
+  },
   reviewAuthor: {
     ...FONTS.bold,
     fontSize: SIZES.medium,
     color: COLORS.primary,
-    marginBottom: SIZES.small,
+  },
+  reviewDate: {
+    ...FONTS.regular,
+    fontSize: SIZES.small,
+    color: COLORS.gray,
   },
   reviewText: {
     ...FONTS.regular,
@@ -476,6 +509,9 @@ const styles = StyleSheet.create({
     ...FONTS.regular,
     fontSize: SIZES.medium,
     color: COLORS.gray,
+  },
+  starsContainer: {
+    flexDirection: 'row',
   },
   addToCartButton: {
     backgroundColor: COLORS.primary,

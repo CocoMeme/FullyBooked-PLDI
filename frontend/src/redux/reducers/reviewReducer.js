@@ -1,6 +1,7 @@
 import * as types from '../constants/reviewConstants';
 
 const initialState = {
+  reviews: [],
   loading: false,
   error: null,
   success: false,
@@ -11,9 +12,22 @@ const reviewReducer = (state = initialState, action) => {
     case types.SUBMIT_REVIEW_REQUEST:
       return { ...state, loading: true, error: null, success: false };
     case types.SUBMIT_REVIEW_SUCCESS:
-      return { ...state, loading: false, success: true };
+      return { 
+        ...state, 
+        loading: false, 
+        success: true,
+        reviews: [...state.reviews, action.payload]
+      };
     case types.SUBMIT_REVIEW_FAILURE:
       return { ...state, loading: false, error: action.payload, success: false };
+
+    case types.FETCH_REVIEWS_REQUEST:
+      return { ...state, loading: true, error: null };
+    case types.FETCH_REVIEWS_SUCCESS:
+      return { ...state, loading: false, reviews: action.payload };
+    case types.FETCH_REVIEWS_FAILURE:
+      return { ...state, loading: false, error: action.payload };
+      
     default:
       return state;
   }

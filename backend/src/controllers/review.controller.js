@@ -46,13 +46,12 @@ const submitReview = async (req, res) => {
 const getReviews = async (req, res) => {
   try {
     const { bookId } = req.params;
-    const reviews = await Review.find({ bookId }).populate('bookId', 'title category');
+    const reviews = await Review.find({ bookId })
+      .populate('bookId', 'title category')
+      .populate('user', 'username email');
 
-    if (!reviews || reviews.length === 0) {
-      return res.status(404).json({ message: "No reviews found for this book" });
-    }
-
-    res.status(200).json({ reviews });
+    // Return empty array instead of 404 when no reviews found
+    res.status(200).json({ reviews: reviews || [] });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Server error" });
@@ -107,8 +106,9 @@ const getAllReviews = async (req, res) => {
   try {
     // Fetch all reviews and populate the associated book and user details
     const reviews = await Review.find()
-      .populate('bookId', 'title category') // Populate book details
-      .populate('user', 'name email'); // Populate user details
+      .populate('bookId', 'title category')
+      .populate('user', 'username email') // Changed name to username to match User model
+      .sort({ createdAt: -1 }); // Sort by newest first
 
     if (!reviews || reviews.length === 0) {
       return res.status(404).json({ message: "No reviews found." });
