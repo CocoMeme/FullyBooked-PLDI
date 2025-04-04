@@ -1,4 +1,5 @@
 const Book = require('../models/book.model');
+const Review = require('../models/review.model');
 const uploadToCloudinary = require('../../utils/cloudinaryUploader');
 const mongoose = require("mongoose");
 
@@ -382,6 +383,17 @@ const deleteBook = async (req, res) => {
   }
 };
 
+const getBookReviews = async (req, res) => {
+  try {
+    const { bookId } = req.params;
+    const reviews = await Review.find({ bookId }).populate('user', 'name'); // Assuming you have a Review model
+    res.status(200).json({ success: true, reviews });
+  } catch (error) {
+    console.error('Error fetching reviews:', error);
+    res.status(500).json({ success: false, message: 'Failed to fetch reviews' });
+  }
+};
+
 module.exports = {
   createBook,
   updateBook,
@@ -389,4 +401,5 @@ module.exports = {
   getBookById,
   searchBooks,
   deleteBook,
+  getBookReviews,
 };

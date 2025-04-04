@@ -5,7 +5,7 @@ const {
   getBookById, 
   updateBook, 
   searchBooks,
-  deleteBook 
+  deleteBook, getBookReviews
 } = require('../controllers/book.controller');
 const verifyAdminToken = require('../middleware/verifyAdminToken');
 const { upload } = require('../../utils/multer.config');
@@ -19,10 +19,12 @@ router.post("/create-book", verifyAdminToken, upload.array('files', 5), createBo
 // Route to get all books
 router.get("/", getAllBooks);
 
-route.get("/search", searchBooks);
+router.get("/search", searchBooks);
 
 // Route to get a single book by its ID
 router.get("/:id", getBookById);
+
+router.get("/:bookId/reviews", getBookReviews);
 
 // Route to update a book with new data and multiple images
 // Accept both 'files' (from mobile) and 'coverImages' (from web) field names

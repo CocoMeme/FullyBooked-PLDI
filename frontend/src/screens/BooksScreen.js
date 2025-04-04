@@ -8,49 +8,50 @@ import {
   SafeAreaView,
   Text,
   TextInput,
-  ScrollView,
-  Modal,
+  ScrollView
 } from 'react-native';
 import { useSelector, useDispatch } from 'react-redux';
-import { fetchBooks, searchBooks } from '../redux/actions/bookActions';
+import { fetchBooks, searchBooks } from '../redux/actions/bookActions'; // Import searchBooks action
 import { COLORS, FONTS, SIZES } from '../constants/theme';
 import Header from '../components/Header';
 import BookCard from '../components/Book Components/BookCard';
 import { Ionicons } from '@expo/vector-icons';
 
-const CATEGORIES = [
-  'Fiction', 'Non-Fiction', 'Science Fiction', 'Fantasy', 
-  'Mystery', 'Romance', 'Biography', 'History', 'Self-Help'
-];
-
-const SORT_OPTIONS = [
-  { value: 'relevance', label: 'Relevance' },
-  { value: 'newest', label: 'Newest First' },
-  { value: 'price_asc', label: 'Price: Low to High' },
-  { value: 'price_desc', label: 'Price: High to Low' }
-];
-
-const BooksScreen = () => {
+const BooksScreen = ({ navigation }) => {
   const dispatch = useDispatch();
   const { books, loading, error } = useSelector(state => state.books);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [filters, setFilters] = useState({
-    category: '',
-    sort: 'relevance',
-  });
-  const [showFilters, setShowFilters] = useState(false);
+  const [quickSearch, setQuickSearch] = useState('');
+  const [searchQuery, setSearchQuery] = useState(''); // State for the new search query
 
   useEffect(() => {
     dispatch(fetchBooks());
   }, [dispatch]);
 
-  const handleSearch = () => {
-    dispatch(searchBooks(searchQuery, filters));
+  // Search button with quick search functionality
+  const navigateToSearch = (initialQuery = '') => {
+    navigation.navigate('ProductsPage', { initialQuery });
   };
 
-  const clearSearch = () => {
-    setSearchQuery('');
-    setFilters({ category: '', sort: 'relevance' });
+  // New search button functionality
+  const handleSearchBooks = () => {
+    dispatch(searchBooks(searchQuery)); // Dispatch the searchBooks action with the query
+  };
+
+  // Search button for the header
+  const SearchButton = () => (
+    <TouchableOpacity onPress={() => navigateToSearch(quickSearch)}>
+      <Ionicons name="search" size={24} color={COLORS.onBackground} />
+    </TouchableOpacity>
+  );
+
+  // Button to handle category navigation
+  const handleCategorySearch = (category) => {
+    navigation.navigate('ProductsPage', { 
+      initialFilters: { category }
+    });
+  };
+
+  const handleRetry = () => {
     dispatch(fetchBooks());
   };
 
@@ -58,129 +59,63 @@ const BooksScreen = () => {
     <SafeAreaView style={styles.container}>
       <Header 
         title="Books" 
+        rightComponent={<SearchButton />} 
       />
-
-      {/* Search Bar */}
-      <View style={styles.searchContainer}>
-        <View style={styles.inputContainer}>
+      
+      {/* Quick search bar */}
+      <View style={styles.quickSearchContainer}>
+        <View style={styles.searchInputContainer}>
           <Ionicons name="search" size={20} color={COLORS.gray} style={styles.searchIcon} />
           <TextInput
-            style={styles.input}
-            placeholder="Search by title, author, category..."
-            placeholderTextColor={COLORS.gray}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
+            style={styles.searchInput}
+            placeholder="Quick search for books..."
+            value={quickSearch}
+            onChangeText={setQuickSearch}
             returnKeyType="search"
-            onSubmitEditing={handleSearch}
+            onSubmitEditing={() => navigateToSearch(quickSearch)}
           />
-          {searchQuery ? (
-            <TouchableOpacity onPress={clearSearch}>
+          {quickSearch ? (
+            <TouchableOpacity onPress={() => setQuickSearch('')}>
               <Ionicons name="close-circle" size={20} color={COLORS.gray} />
             </TouchableOpacity>
           ) : null}
         </View>
-        
-        <TouchableOpacity style={styles.searchButton} onPress={handleSearch}>
-          <Text style={styles.searchButtonText}>Search</Text>
-        </TouchableOpacity>
       </View>
 
-      {/* Filter Button */}
-      <TouchableOpacity style={styles.filterButton} onPress={() => setShowFilters(true)}>
-        <Ionicons name="filter" size={24} color={COLORS.onBackground} />
-        <Text style={styles.filterButtonText}>Filters</Text>
-      </TouchableOpacity>
+      {/* New search bar */}
+      <View style={styles.newSearchContainer}>
+        <TextInput
+          style={styles.newSearchInput}
+          placeholder="Search books..."
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+        />
+        <TouchableOpacity style={styles.newSearchButton} onPress={handleSearchBooks}>
+          <Text style={styles.newSearchButtonText}>Search</Text>
+        </TouchableOpacity>
+      </View>
+      
+      {/* Category chips for quick filtering */}
+      <View style={styles.categoryContainer}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+          {['Fiction', 'Non-Fiction', 'Fantasy', 'Romance', 'Mystery', 'History'].map(category => (
+            <TouchableOpacity 
+              key={category} 
+              style={styles.categoryChip}
+              onPress={() => handleCategorySearch(category)}
+            >
+              <Text style={styles.categoryText}>{category}</Text>
+            </TouchableOpacity>
+          ))}
+          <TouchableOpacity 
+            style={[styles.categoryChip, styles.viewAllChip]}
+            onPress={() => navigateToSearch()}
+          >
+            <Text style={[styles.categoryText, styles.viewAllText]}>View All</Text>
+          </TouchableOpacity>
+        </ScrollView>
+      </View>
 
-      {/* Filter Modal */}
-      <Modal
-        visible={showFilters}
-        transparent={true}
-        animationType="slide"
-        onRequestClose={() => setShowFilters(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Filter Books</Text>
-              <TouchableOpacity onPress={() => setShowFilters(false)}>
-                <Ionicons name="close" size={24} color={COLORS.onBackground} />
-              </TouchableOpacity>
-            </View>
-            
-            <ScrollView style={styles.modalBody}>
-              {/* Categories */}
-              <Text style={styles.filterSectionTitle}>Categories</Text>
-              <View style={styles.categoriesContainer}>
-                {CATEGORIES.map((category) => (
-                  <TouchableOpacity
-                    key={category}
-                    style={[
-                      styles.categoryButton,
-                      filters.category === category && styles.categoryButtonActive
-                    ]}
-                    onPress={() => setFilters({
-                      ...filters,
-                      category: filters.category === category ? '' : category
-                    })}
-                  >
-                    <Text style={[
-                      styles.categoryButtonText,
-                      filters.category === category && styles.categoryButtonTextActive
-                    ]}>
-                      {category}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-              
-              {/* Sort By */}
-              <Text style={styles.filterSectionTitle}>Sort By</Text>
-              {SORT_OPTIONS.map((option) => (
-                <TouchableOpacity
-                  key={option.value}
-                  style={[
-                    styles.sortOption,
-                    filters.sort === option.value && styles.sortOptionActive
-                  ]}
-                  onPress={() => setFilters({...filters, sort: option.value})}
-                >
-                  <Text style={[
-                    styles.sortOptionText,
-                    filters.sort === option.value && styles.sortOptionTextActive
-                  ]}>
-                    {option.label}
-                  </Text>
-                  {filters.sort === option.value && (
-                    <Ionicons name="checkmark" size={20} color={COLORS.primary} />
-                  )}
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-            
-            <View style={styles.modalFooter}>
-              <TouchableOpacity
-                style={styles.clearButton}
-                onPress={() => {
-                  setFilters({ category: '', sort: 'relevance' });
-                }}
-              >
-                <Text style={styles.clearButtonText}>Clear All</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.applyButton}
-                onPress={() => {
-                  setShowFilters(false);
-                  handleSearch();
-                }}
-              >
-                <Text style={styles.applyButtonText}>Apply Filters</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
-      {/* Book List */}
       {loading ? (
         <View style={styles.loaderContainer}>
           <ActivityIndicator size="large" color={COLORS.primary} />
@@ -188,7 +123,7 @@ const BooksScreen = () => {
       ) : error ? (
         <View style={styles.errorContainer}>
           <Text style={styles.errorText}>{error}</Text>
-          <TouchableOpacity style={styles.retryButton} onPress={() => dispatch(fetchBooks())}>
+          <TouchableOpacity style={styles.retryButton} onPress={handleRetry}>
             <Text style={styles.retryText}>Retry</Text>
           </TouchableOpacity>
         </View>
@@ -198,6 +133,7 @@ const BooksScreen = () => {
           renderItem={({ item }) => (
             <BookCard 
               book={item} 
+              navigation={navigation} 
               showAddToCart={true} 
             />
           )}
@@ -205,13 +141,14 @@ const BooksScreen = () => {
           numColumns={2}
           contentContainerStyle={styles.listContainer}
           showsVerticalScrollIndicator={false}
+          ListHeaderComponent={
+            <View style={styles.headerContainer}>
+              <Text style={styles.sectionTitle}>Popular Books</Text>
+            </View>
+          }
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
-              <Text style={styles.emptyText}>
-                {searchQuery || filters.category ? 
-                  `No books found matching your search` : 
-                  "No books available"}
-              </Text>
+              <Text style={styles.emptyText}>No books found</Text>
             </View>
           }
         />
@@ -225,157 +162,86 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.background,
   },
-  searchContainer: {
-    flexDirection: 'row',
-    padding: SIZES.small,
-    alignItems: 'center',
+  quickSearchContainer: {
+    paddingHorizontal: SIZES.medium,
+    paddingVertical: SIZES.small,
   },
-  inputContainer: {
-    flex: 1,
+  searchInputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: COLORS.lightGray,
     borderRadius: SIZES.radius,
     paddingHorizontal: SIZES.base,
-    marginRight: SIZES.base,
   },
   searchIcon: {
     marginRight: SIZES.base,
   },
-  input: {
+  searchInput: {
     flex: 1,
     height: 40,
     ...FONTS.regular,
     color: COLORS.onBackground,
   },
-  searchButton: {
-    backgroundColor: COLORS.primary,
-    paddingVertical: 10,
-    paddingHorizontal: 15,
-    borderRadius: SIZES.radius,
-  },
-  searchButtonText: {
-    ...FONTS.medium,
-    color: COLORS.white,
-    fontSize: SIZES.medium,
-  },
-  filterButton: {
+  newSearchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: SIZES.small,
+    marginHorizontal: SIZES.medium,
+    marginBottom: SIZES.small,
   },
-  filterButtonText: {
-    ...FONTS.medium,
-    color: COLORS.onBackground,
-    marginLeft: 8,
-  },
-  modalOverlay: {
+  newSearchInput: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    backgroundColor: COLORS.background,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    maxHeight: '80%',
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: SIZES.medium,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.lightGray,
-  },
-  modalTitle: {
-    ...FONTS.semibold,
-    fontSize: SIZES.large,
-    color: COLORS.onBackground,
-  },
-  modalBody: {
-    padding: SIZES.medium,
-  },
-  filterSectionTitle: {
-    ...FONTS.medium,
-    fontSize: SIZES.medium,
-    color: COLORS.onBackground,
-    marginTop: 10,
-    marginBottom: 10,
-  },
-  categoriesContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginBottom: 15,
-  },
-  categoryButton: {
-    borderWidth: 1,
-    borderColor: COLORS.primary,
-    borderRadius: SIZES.base,
-    padding: 8,
-    margin: 4,
-  },
-  categoryButtonActive: {
-    backgroundColor: COLORS.primary,
-  },
-  categoryButtonText: {
-    ...FONTS.regular,
-    color: COLORS.primary,
-  },
-  categoryButtonTextActive: {
-    color: COLORS.white,
-  },
-  sortOption: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.lightGray,
-  },
-  sortOptionActive: {
-    backgroundColor: COLORS.lightGray + '30',
-  },
-  sortOptionText: {
-    ...FONTS.regular,
-    color: COLORS.onBackground,
-  },
-  sortOptionTextActive: {
-    ...FONTS.medium,
-    color: COLORS.primary,
-  },
-  modalFooter: {
-    flexDirection: 'row',
-    padding: SIZES.medium,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.lightGray,
-  },
-  clearButton: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-    marginRight: 8,
+    height: 40,
     borderWidth: 1,
     borderColor: COLORS.gray,
     borderRadius: SIZES.radius,
-  },
-  clearButtonText: {
-    ...FONTS.medium,
+    paddingHorizontal: SIZES.base,
+    marginRight: SIZES.base,
+    ...FONTS.regular,
     color: COLORS.onBackground,
   },
-  applyButton: {
-    flex: 2,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-    marginLeft: 8,
+  newSearchButton: {
     backgroundColor: COLORS.primary,
-    borderRadius: SIZES.radius,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: SIZES.base,
   },
-  applyButtonText: {
+  newSearchButtonText: {
     ...FONTS.medium,
     color: COLORS.white,
+    fontSize: SIZES.medium,
+  },
+  categoryContainer: {
+    paddingHorizontal: SIZES.small,
+    marginBottom: SIZES.small,
+  },
+  categoryChip: {
+    backgroundColor: COLORS.primary + '20',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    marginRight: 8,
+    borderWidth: 1,
+    borderColor: COLORS.primary,
+  },
+  categoryText: {
+    ...FONTS.medium,
+    fontSize: SIZES.small,
+    color: COLORS.primary,
+  },
+  viewAllChip: {
+    backgroundColor: COLORS.primary,
+  },
+  viewAllText: {
+    color: COLORS.white,
+  },
+  headerContainer: {
+    paddingHorizontal: SIZES.small,
+    paddingBottom: SIZES.small,
+  },
+  sectionTitle: {
+    ...FONTS.semibold,
+    fontSize: SIZES.large,
+    color: COLORS.onBackground,
   },
   listContainer: {
     padding: SIZES.small,
@@ -406,7 +272,7 @@ const styles = StyleSheet.create({
   },
   retryText: {
     ...FONTS.medium,
-    color: COLORS.white,
+    color: '#fff',
     fontSize: SIZES.medium,
   },
   emptyContainer: {
@@ -419,7 +285,6 @@ const styles = StyleSheet.create({
     ...FONTS.medium,
     fontSize: SIZES.medium,
     color: COLORS.onBackground,
-    textAlign: 'center',
   },
 });
 

@@ -30,6 +30,7 @@ const BookDetails = ({ route, navigation }) => {
   const [book, setBook] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeSlide, setActiveSlide] = useState(0);
+  const [reviews, setReviews] = useState([]);
   const scrollY = useRef(new Animated.Value(0)).current;
   const pagerRef = useRef(null);
 
@@ -48,6 +49,7 @@ const BookDetails = ({ route, navigation }) => {
 
   useEffect(() => {
     fetchBookDetails();
+    fetchBookReviews();
   }, [bookId]);
 
   const fetchBookDetails = async () => {
@@ -63,6 +65,25 @@ const BookDetails = ({ route, navigation }) => {
       console.error('Error fetching book details:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchBookReviews = async () => {
+    try {
+      const response = await axios.get(`${baseURL}books/${bookId}/reviews`);
+      if (response.data.success) {
+        setReviews(response.data.reviews);
+      } else {
+        Alert.alert('Error', 'Failed to fetch book reviews');
+      }
+    } catch (error) {
+      if (error.response && error.response.status === 404) {
+        console.warn('No reviews found for this book.');
+        setReviews([]); // Set reviews to an empty array if not found
+      } else {
+        Alert.alert('Error', 'Failed to fetch book reviews');
+        console.error('Error fetching book reviews:', error);
+      }
     }
   };
 
@@ -200,6 +221,21 @@ const BookDetails = ({ route, navigation }) => {
             <Text style={styles.description}>{book.description}</Text>
           </View>
 
+          {/* Reviews Section */}
+          <View style={styles.reviewsContainer}>
+            <Text style={styles.sectionTitle}>Reviews</Text>
+            {reviews.length > 0 ? (
+              reviews.map((review, index) => (
+                <View key={index} style={styles.reviewItem}>
+                  <Text style={styles.reviewAuthor}>{review.author}</Text>
+                  <Text style={styles.reviewText}>{review.text}</Text>
+                </View>
+              ))
+            ) : (
+              <Text style={styles.noReviewsText}>No reviews available for this book.</Text>
+            )}
+          </View>
+
           {book.stock > 0 && (
             <TouchableOpacity 
               style={styles.addToCartButton}
@@ -221,19 +257,23 @@ const styles = StyleSheet.create({
     height: screenWidth * 1.2,
   },
   carouselContainer: {
-    backgroundColor: '#f8f9fa',
+    backgroundColor: '#ffffff', // Changed to pure white for a cleaner look
     position: 'relative',
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
+    overflow: 'hidden',
   },
   carouselItemContainer: {
     width: screenWidth,
     height: screenWidth * 1.2,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#f8f9fa',
+    backgroundColor: '#ffffff',
   },
   carouselImage: {
-    width: '80%',
-    height: '80%',
+    width: '90%', // Increased width for better visibility
+    height: '90%',
+    borderRadius: 10, // Added rounded corners
   },
   paginationContainer: {
     flexDirection: 'row',
@@ -244,14 +284,14 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   paginationDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    marginHorizontal: 4,
+    width: 10, // Increased size for better visibility
+    height: 10,
+    borderRadius: 5,
+    marginHorizontal: 5,
   },
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: '#f5f5f5', // Light gray background for a softer look
   },
   fixedHeader: {
     position: 'absolute',
@@ -260,35 +300,42 @@ const styles = StyleSheet.create({
     right: 0,
     zIndex: 100,
     backgroundColor: COLORS.background,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: '#ffffff', // White background for loading screen
   },
   errorContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     padding: SIZES.large,
+    backgroundColor: '#ffffff', // White background for error screen
   },
   infoContainer: {
-    backgroundColor: COLORS.background,
+    backgroundColor: '#ffffff', // White background for content
     borderTopLeftRadius: 30,
     borderTopRightRadius: 30,
     marginTop: -30,
     padding: SIZES.large,
     shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: -3,
-    },
+    shadowOffset: { width: 0, height: -3 },
     shadowOpacity: 0.1,
     shadowRadius: 6,
     elevation: 5,
   },
   titleSection: {
     marginBottom: SIZES.medium,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0', // Subtle divider for better separation
+    paddingBottom: SIZES.small,
   },
   title: {
     ...FONTS.bold,
@@ -370,6 +417,9 @@ const styles = StyleSheet.create({
   },
   descriptionContainer: {
     marginBottom: SIZES.large,
+    backgroundColor: '#f9f9f9', // Light background for better readability
+    padding: SIZES.medium,
+    borderRadius: SIZES.base,
   },
   sectionTitle: {
     ...FONTS.bold,
@@ -383,6 +433,39 @@ const styles = StyleSheet.create({
     color: COLORS.onBackground,
     lineHeight: 24,
   },
+  reviewsContainer: {
+    marginBottom: SIZES.large,
+    backgroundColor: '#f9f9f9', // Light background for reviews
+    padding: SIZES.medium,
+    borderRadius: SIZES.base,
+  },
+  reviewItem: {
+    marginBottom: SIZES.medium,
+    padding: SIZES.medium,
+    backgroundColor: '#ffffff', // White background for individual reviews
+    borderRadius: SIZES.base,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  reviewAuthor: {
+    ...FONTS.bold,
+    fontSize: SIZES.medium,
+    color: COLORS.primary,
+    marginBottom: SIZES.small,
+  },
+  reviewText: {
+    ...FONTS.regular,
+    fontSize: SIZES.medium,
+    color: COLORS.onBackground,
+  },
+  noReviewsText: {
+    ...FONTS.regular,
+    fontSize: SIZES.medium,
+    color: COLORS.gray,
+  },
   addToCartButton: {
     backgroundColor: COLORS.primary,
     flexDirection: 'row',
@@ -391,6 +474,11 @@ const styles = StyleSheet.create({
     padding: SIZES.medium,
     borderRadius: SIZES.base,
     marginTop: SIZES.medium,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
   },
   addToCartText: {
     ...FONTS.bold,
