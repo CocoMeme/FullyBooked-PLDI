@@ -19,7 +19,7 @@ router.post("/create-book", verifyAdminToken, upload.array('files', 5), createBo
 // Route to get all books
 router.get("/", getAllBooks);
 
-router.get("/search", searchBooks);
+// router.get("/search", searchBooks);
 
 // Route to get a single book by its ID
 router.get("/:id", getBookById);

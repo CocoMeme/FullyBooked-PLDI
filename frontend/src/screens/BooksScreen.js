@@ -11,7 +11,7 @@ import {
   ScrollView
 } from 'react-native';
 import { useSelector, useDispatch } from 'react-redux';
-import { fetchBooks, searchBooks } from '../redux/actions/bookActions'; // Import searchBooks action
+import { fetchBooks } from '../redux/actions/bookActions'; // Removed searchBooks import
 import { COLORS, FONTS, SIZES } from '../constants/theme';
 import Header from '../components/Header';
 import BookCard from '../components/Book Components/BookCard';
@@ -22,19 +22,42 @@ const BooksScreen = ({ navigation }) => {
   const { books, loading, error } = useSelector(state => state.books);
   const [quickSearch, setQuickSearch] = useState('');
   const [searchQuery, setSearchQuery] = useState(''); // State for the new search query
+  const [filteredBooks, setFilteredBooks] = useState([]); // State for filtered books
+  const [selectedCategory, setSelectedCategory] = useState(''); // State for selected category
+  const [priceRange, setPriceRange] = useState({ min: 0, max: Infinity }); // State for price range
 
   useEffect(() => {
     dispatch(fetchBooks());
   }, [dispatch]);
 
+  useEffect(() => {
+    // Filter books based on the selected category, search query, and price range
+    let filtered = books;
+
+    if (selectedCategory) {
+      filtered = filtered.filter(book => 
+        book.category.toLowerCase() === selectedCategory.toLowerCase()
+      );
+    }
+
+    if (searchQuery.trim()) {
+      filtered = filtered.filter(book =>
+        book.title.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+    }
+
+    if (priceRange.min !== 0 || priceRange.max !== Infinity) {
+      filtered = filtered.filter(book =>
+        book.price >= priceRange.min && book.price <= priceRange.max
+      );
+    }
+
+    setFilteredBooks(filtered);
+  }, [selectedCategory, searchQuery, priceRange, books]);
+
   // Search button with quick search functionality
   const navigateToSearch = (initialQuery = '') => {
     navigation.navigate('ProductsPage', { initialQuery });
-  };
-
-  // New search button functionality
-  const handleSearchBooks = () => {
-    dispatch(searchBooks(searchQuery)); // Dispatch the searchBooks action with the query
   };
 
   // Search button for the header
@@ -46,9 +69,39 @@ const BooksScreen = ({ navigation }) => {
 
   // Button to handle category navigation
   const handleCategorySearch = (category) => {
-    navigation.navigate('ProductsPage', { 
-      initialFilters: { category }
-    });
+    setSelectedCategory(category); // Set the selected category
+  };
+
+  const handlePriceFilter = (min, max) => {
+    setPriceRange({ min, max }); // Set the price range
+  };
+
+  const handleMinIncrement = () => {
+    setPriceRange(prev => ({
+      min: prev.min + 100,
+      max: Math.max(prev.min + 100, prev.max) // Ensure max is always greater than or equal to min
+    }));
+  };
+
+  const handleMinDecrement = () => {
+    setPriceRange(prev => ({
+      min: Math.max(0, prev.min - 100), // Ensure min doesn't go below 0
+      max: prev.max
+    }));
+  };
+
+  const handleMaxIncrement = () => {
+    setPriceRange(prev => ({
+      min: prev.min,
+      max: prev.max + 100
+    }));
+  };
+
+  const handleMaxDecrement = () => {
+    setPriceRange(prev => ({
+      min: prev.min,
+      max: Math.max(prev.min + 100, prev.max - 100) // Ensure max is always greater than or equal to min
+    }));
   };
 
   const handleRetry = () => {
@@ -90,7 +143,7 @@ const BooksScreen = ({ navigation }) => {
           value={searchQuery}
           onChangeText={setSearchQuery}
         />
-        <TouchableOpacity style={styles.newSearchButton} onPress={handleSearchBooks}>
+        <TouchableOpacity style={styles.newSearchButton} onPress={() => {}}>
           <Text style={styles.newSearchButtonText}>Search</Text>
         </TouchableOpacity>
       </View>
@@ -98,22 +151,70 @@ const BooksScreen = ({ navigation }) => {
       {/* Category chips for quick filtering */}
       <View style={styles.categoryContainer}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          {['Fiction', 'Non-Fiction', 'Fantasy', 'Romance', 'Mystery', 'History'].map(category => (
+          {['Fiction', 'Non-Fiction', 'Fantasy', 'Romance', 'Mystery', 'History', 'Horror', 'Action', 'Business'].map(category => (
             <TouchableOpacity 
               key={category} 
-              style={styles.categoryChip}
+              style={[
+                styles.categoryChip,
+                selectedCategory === category && styles.selectedCategoryChip // Highlight selected category
+              ]}
               onPress={() => handleCategorySearch(category)}
             >
-              <Text style={styles.categoryText}>{category}</Text>
+              <Text 
+                style={[
+                  styles.categoryText,
+                  selectedCategory === category && styles.selectedCategoryText // Highlight selected category text
+                ]}
+              >
+                {category}
+              </Text>
             </TouchableOpacity>
           ))}
           <TouchableOpacity 
             style={[styles.categoryChip, styles.viewAllChip]}
-            onPress={() => navigateToSearch()}
+            onPress={() => setSelectedCategory('')} // Clear category filter
           >
             <Text style={[styles.categoryText, styles.viewAllText]}>View All</Text>
           </TouchableOpacity>
         </ScrollView>
+      </View>
+
+      {/* Price filter buttons and range display */}
+      <View style={styles.priceFilterContainer}>
+        <View style={styles.priceAdjustGroup}>
+          <Text style={styles.priceLabel}>Min Price:</Text>
+          <TouchableOpacity
+            style={styles.priceAdjustButton}
+            onPress={handleMinDecrement}
+          >
+            <Text style={styles.priceAdjustText}>-</Text>
+          </TouchableOpacity>
+          <Text style={styles.priceRangeText}>₱{priceRange.min}</Text>
+          <TouchableOpacity
+            style={styles.priceAdjustButton}
+            onPress={handleMinIncrement}
+          >
+            <Text style={styles.priceAdjustText}>+</Text>
+          </TouchableOpacity>
+        </View>
+        <View style={styles.priceAdjustGroup}>
+          <Text style={styles.priceLabel}>Max Price:</Text>
+          <TouchableOpacity
+            style={styles.priceAdjustButton}
+            onPress={handleMaxDecrement}
+          >
+            <Text style={styles.priceAdjustText}>-</Text>
+          </TouchableOpacity>
+          <Text style={styles.priceRangeText}>
+            ₱{priceRange.max === Infinity ? 'Above' : priceRange.max}
+          </Text>
+          <TouchableOpacity
+            style={styles.priceAdjustButton}
+            onPress={handleMaxIncrement}
+          >
+            <Text style={styles.priceAdjustText}>+</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {loading ? (
@@ -129,7 +230,7 @@ const BooksScreen = ({ navigation }) => {
         </View>
       ) : (
         <FlatList
-          data={books}
+          data={filteredBooks} // Use filteredBooks instead of books
           renderItem={({ item }) => (
             <BookCard 
               book={item} 
@@ -233,6 +334,46 @@ const styles = StyleSheet.create({
   },
   viewAllText: {
     color: COLORS.white,
+  },
+  selectedCategoryChip: {
+    backgroundColor: COLORS.primary,
+  },
+  selectedCategoryText: {
+    color: COLORS.white,
+  },
+  priceFilterContainer: {
+    marginHorizontal: SIZES.medium,
+    marginBottom: SIZES.small,
+  },
+  priceAdjustGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: SIZES.small,
+  },
+  priceLabel: {
+    ...FONTS.medium,
+    fontSize: SIZES.medium,
+    color: COLORS.onBackground,
+    flex: 1,
+  },
+  priceAdjustButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: SIZES.base,
+    backgroundColor: COLORS.lightGray,
+    marginHorizontal: SIZES.base,
+  },
+  priceAdjustText: {
+    ...FONTS.medium,
+    fontSize: SIZES.large,
+    color: COLORS.onBackground,
+  },
+  priceRangeText: {
+    ...FONTS.medium,
+    fontSize: SIZES.medium,
+    color: COLORS.onBackground,
+    marginHorizontal: SIZES.base,
   },
   headerContainer: {
     paddingHorizontal: SIZES.small,
