@@ -39,6 +39,10 @@ const orderSchema = new mongoose.Schema(
         type: Boolean,
         default: false,
       },
+      deliveredAt: {
+        type: Date,
+        default: null
+      }
     },
     { timestamps: true }
   );
@@ -46,7 +50,8 @@ const orderSchema = new mongoose.Schema(
 // Middleware to handle status updates
 orderSchema.pre('save', function(next) {
     // If order is delivered, set deliveredAt timestamp
-    if (this.status === 'pelivered' && !this.deliveredAt) {
+    // Fixed typo from 'pelivered' to 'Delivered'
+    if (this.status === 'Delivered' && !this.deliveredAt) {
         this.deliveredAt = new Date();
     }
     next();
