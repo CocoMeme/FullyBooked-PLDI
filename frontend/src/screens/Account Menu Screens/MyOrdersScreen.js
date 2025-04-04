@@ -66,24 +66,13 @@ const MyOrdersScreen = ({ navigation }) => {
       const response = await axios.get(`${baseURL}orders/my-orders`, config);
   
       if (response.status === 200) {
+        // Get raw orders data from the response
         const ordersData = response.data.orders;
+        console.log('Orders fetched successfully:', ordersData.length);
   
-        // Transform the data to match the expected structure
-        const formattedOrders = ordersData.map(order => ({
-          id: order._id,
-          orderNumber: order.orderNumber || `ORD-${Math.floor(Math.random() * 100000)}`,
-          date: order.createdAt,
-          status: (order.status || 'processing').toLowerCase(),
-          items: Array.isArray(order.items) ? order.items.map(item => ({
-            id: item._id,
-            title: item.book?.title || 'Book',
-            quantity: item.quantity || 1,
-            price: item.price || 0,
-          })) : [],
-          total: order.totalAmount || 0,
-        }));
-  
-        setOrders(formattedOrders);
+        // Set the orders directly without transforming, to preserve the original structure
+        // which will be used by components like ToReview
+        setOrders(ordersData);
       } else {
         Alert.alert('Error', 'Failed to fetch orders. Please try again.');
       }
@@ -112,21 +101,40 @@ const MyOrdersScreen = ({ navigation }) => {
       );
     }
 
+    // Make sure we have the user ID for filtering
+    // Try multiple possible user ID formats
+    const userIdFromContext = context?.stateUser?.user?.userId || '';
+    const userIdAlt = context?.stateUser?.user?.id || '';
+    const user_id = context?.stateUser?.user?._id || '';
+    
+    // Log all possible user ID formats for debugging
+    console.log('MyOrdersScreen - User ID formats:');
+    console.log('  userId:', userIdFromContext);
+    console.log('  id:', userIdAlt);
+    console.log('  _id:', user_id);
+    console.log('  user object:', context?.stateUser?.user);
+    
+    // Use the best available user ID
+    const userId = userIdAlt || userIdFromContext || user_id;
+
     switch (activeTab) {
       case 'history':
         return <OrderHistory orders={orders} navigation={navigation} />;
       case 'toReceive':
-        // Filter orders that are not delivered yet (processing or shipped)
+        // Filter orders that are not delivered yet (Pending or Shipped)
+        // Match the exact case from the order model enum
         const pendingOrders = orders.filter(order => 
-          order.status === 'processing' || order.status === 'shipped'
+          order.status === 'Pending' || order.status === 'Shipped'
         );
         return <ToReceive orders={pendingOrders} navigation={navigation} />;
       case 'toReview':
-        // Filter delivered orders that haven't been reviewed
-        const toReviewOrders = orders.filter(order => 
-          order.status === 'delivered' && !order.reviewed
-        );
-        return <ToReview orders={toReviewOrders} navigation={navigation} />;
+        // Filter delivered orders for review
+        // Match the exact case from the order model enum
+        return <ToReview 
+          orders={orders.filter(order => order.status === 'Delivered')} 
+          navigation={navigation} 
+          userId={userId}
+        />;
       default:
         return <OrderHistory orders={orders} navigation={navigation} />;
     }
