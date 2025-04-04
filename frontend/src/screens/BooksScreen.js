@@ -8,215 +8,192 @@ import {
   SafeAreaView,
   Text,
   TextInput,
-  ScrollView
+  ScrollView,
+  Modal,
+  Animated,
+  Dimensions
 } from 'react-native';
 import { useSelector, useDispatch } from 'react-redux';
-import { fetchBooks } from '../redux/actions/bookActions'; // Removed searchBooks import
+import { fetchBooks } from '../redux/actions/bookActions';
 import { COLORS, FONTS, SIZES } from '../constants/theme';
 import Header from '../components/Header';
 import BookCard from '../components/Book Components/BookCard';
 import { Ionicons } from '@expo/vector-icons';
 
+const { width: screenWidth } = Dimensions.get('window');
+
 const BooksScreen = ({ navigation }) => {
   const dispatch = useDispatch();
   const { books, loading, error } = useSelector(state => state.books);
-  const [quickSearch, setQuickSearch] = useState('');
-  const [searchQuery, setSearchQuery] = useState(''); // State for the new search query
-  const [filteredBooks, setFilteredBooks] = useState([]); // State for filtered books
-  const [selectedCategory, setSelectedCategory] = useState(''); // State for selected category
-  const [priceRange, setPriceRange] = useState({ min: 0, max: Infinity }); // State for price range
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filteredBooks, setFilteredBooks] = useState([]);
+  const [showFilterModal, setShowFilterModal] = useState(false);
+  const [filters, setFilters] = useState({
+    categories: [],
+    priceRange: { min: '0', max: '2000' },
+    sortBy: 'newest'
+  });
+  const [slideAnim] = useState(new Animated.Value(screenWidth));
 
   useEffect(() => {
     dispatch(fetchBooks());
   }, [dispatch]);
 
   useEffect(() => {
-    // Filter books based on the selected category, search query, and price range
-    let filtered = books;
+    applyFilters();
+  }, [books, filters, searchQuery]);
 
-    if (selectedCategory) {
-      filtered = filtered.filter(book => 
-        book.category.toLowerCase() === selectedCategory.toLowerCase()
-      );
+  useEffect(() => {
+    if (showFilterModal) {
+      Animated.spring(slideAnim, {
+        toValue: 0,
+        useNativeDriver: true,
+      }).start();
+    } else {
+      Animated.spring(slideAnim, {
+        toValue: screenWidth,
+        useNativeDriver: true,
+      }).start();
     }
+  }, [showFilterModal]);
+
+  const applyFilters = () => {
+    let filtered = [...books];
 
     if (searchQuery.trim()) {
       filtered = filtered.filter(book =>
-        book.title.toLowerCase().includes(searchQuery.toLowerCase())
+        book.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        book.author.toLowerCase().includes(searchQuery.toLowerCase())
       );
     }
 
-    if (priceRange.min !== 0 || priceRange.max !== Infinity) {
-      filtered = filtered.filter(book =>
-        book.price >= priceRange.min && book.price <= priceRange.max
+    if (filters.categories.length > 0) {
+      filtered = filtered.filter(book => 
+        filters.categories.some(category => 
+          book.category.toLowerCase() === category.toLowerCase()
+        )
       );
+    }
+
+    filtered = filtered.filter(book =>
+      book.price >= Number(filters.priceRange.min) && 
+      book.price <= Number(filters.priceRange.max)
+    );
+
+    switch (filters.sortBy) {
+      case 'price_low':
+        filtered.sort((a, b) => a.price - b.price);
+        break;
+      case 'price_high':
+        filtered.sort((a, b) => b.price - a.price);
+        break;
+      case 'newest':
+        filtered.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+        break;
+      default:
+        break;
     }
 
     setFilteredBooks(filtered);
-  }, [selectedCategory, searchQuery, priceRange, books]);
-
-  // Search button with quick search functionality
-  const navigateToSearch = (initialQuery = '') => {
-    navigation.navigate('ProductsPage', { initialQuery });
   };
 
-  // Search button for the header
-  const SearchButton = () => (
-    <TouchableOpacity onPress={() => navigateToSearch(quickSearch)}>
-      <Ionicons name="search" size={24} color={COLORS.onBackground} />
-    </TouchableOpacity>
-  );
-
-  // Button to handle category navigation
-  const handleCategorySearch = (category) => {
-    setSelectedCategory(category); // Set the selected category
+  const handlePriceChange = (type, value) => {
+    if (value === '' || /^\d*$/.test(value)) {
+      setFilters(prev => ({
+        ...prev,
+        priceRange: {
+          ...prev.priceRange,
+          [type]: value
+        }
+      }));
+    }
   };
 
-  const handlePriceFilter = (min, max) => {
-    setPriceRange({ min, max }); // Set the price range
+  const toggleCategory = (category) => {
+    setFilters(prev => {
+      const isSelected = prev.categories.includes(category);
+      return {
+        ...prev,
+        categories: isSelected
+          ? prev.categories.filter(c => c !== category)
+          : [...prev.categories, category]
+      };
+    });
   };
 
-  const handleMinIncrement = () => {
-    setPriceRange(prev => ({
-      min: prev.min + 100,
-      max: Math.max(prev.min + 100, prev.max) // Ensure max is always greater than or equal to min
-    }));
-  };
-
-  const handleMinDecrement = () => {
-    setPriceRange(prev => ({
-      min: Math.max(0, prev.min - 100), // Ensure min doesn't go below 0
-      max: prev.max
-    }));
-  };
-
-  const handleMaxIncrement = () => {
-    setPriceRange(prev => ({
-      min: prev.min,
-      max: prev.max + 100
-    }));
-  };
-
-  const handleMaxDecrement = () => {
-    setPriceRange(prev => ({
-      min: prev.min,
-      max: Math.max(prev.min + 100, prev.max - 100) // Ensure max is always greater than or equal to min
-    }));
-  };
-
-  const handleRetry = () => {
-    dispatch(fetchBooks());
+  const clearFilters = () => {
+    setFilters({
+      categories: [],
+      priceRange: { min: '0', max: '2000' },
+      sortBy: 'newest'
+    });
   };
 
   return (
     <SafeAreaView style={styles.container}>
       <Header 
         title="Books" 
-        rightComponent={<SearchButton />} 
+        rightComponent={
+          <TouchableOpacity onPress={() => setShowFilterModal(true)}>
+            <Ionicons name="filter" size={24} color={COLORS.onBackground} />
+          </TouchableOpacity>
+        }
       />
       
-      {/* Quick search bar */}
-      <View style={styles.quickSearchContainer}>
+      {/* Search Container */}
+      <View style={styles.searchContainer}>
         <View style={styles.searchInputContainer}>
           <Ionicons name="search" size={20} color={COLORS.gray} style={styles.searchIcon} />
           <TextInput
             style={styles.searchInput}
-            placeholder="Quick search for books..."
-            value={quickSearch}
-            onChangeText={setQuickSearch}
+            placeholder="Search books by title or author..."
+            value={searchQuery}
+            onChangeText={setSearchQuery}
             returnKeyType="search"
-            onSubmitEditing={() => navigateToSearch(quickSearch)}
           />
-          {quickSearch ? (
-            <TouchableOpacity onPress={() => setQuickSearch('')}>
+          {searchQuery ? (
+            <TouchableOpacity onPress={() => setSearchQuery('')}>
               <Ionicons name="close-circle" size={20} color={COLORS.gray} />
             </TouchableOpacity>
           ) : null}
         </View>
       </View>
 
-      {/* New search bar */}
-      <View style={styles.newSearchContainer}>
-        <TextInput
-          style={styles.newSearchInput}
-          placeholder="Search books..."
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-        />
-        <TouchableOpacity style={styles.newSearchButton} onPress={() => {}}>
-          <Text style={styles.newSearchButtonText}>Search</Text>
-        </TouchableOpacity>
-      </View>
-      
-      {/* Category chips for quick filtering */}
-      <View style={styles.categoryContainer}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          {['Fiction', 'Non-Fiction', 'Fantasy', 'Romance', 'Mystery', 'History', 'Horror', 'Action', 'Business'].map(category => (
-            <TouchableOpacity 
-              key={category} 
-              style={[
-                styles.categoryChip,
-                selectedCategory === category && styles.selectedCategoryChip // Highlight selected category
-              ]}
-              onPress={() => handleCategorySearch(category)}
-            >
-              <Text 
-                style={[
-                  styles.categoryText,
-                  selectedCategory === category && styles.selectedCategoryText // Highlight selected category text
-                ]}
-              >
-                {category}
-              </Text>
+      {/* Active Filters */}
+      {(filters.categories.length > 0 || filters.priceRange.min > '0' || filters.priceRange.max < '2000') && (
+        <View style={styles.activeFiltersContainer}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            {filters.categories.map((category) => (
+              <View key={category} style={styles.filterTag}>
+                <Text style={styles.filterTagText}>{category}</Text>
+                <TouchableOpacity onPress={() => toggleCategory(category)}>
+                  <Ionicons name="close" size={16} color={COLORS.white} />
+                </TouchableOpacity>
+              </View>
+            ))}
+            {(filters.priceRange.min > '0' || filters.priceRange.max < '2000') && (
+              <View style={styles.filterTag}>
+                <Text style={styles.filterTagText}>
+                  ₱{filters.priceRange.min} - ₱{filters.priceRange.max}
+                </Text>
+                <TouchableOpacity 
+                  onPress={() => setFilters({ 
+                    ...filters, 
+                    priceRange: { min: '0', max: '2000' } 
+                  })}
+                >
+                  <Ionicons name="close" size={16} color={COLORS.white} />
+                </TouchableOpacity>
+              </View>
+            )}
+            <TouchableOpacity style={styles.clearAllButton} onPress={clearFilters}>
+              <Text style={styles.clearAllText}>Clear All</Text>
             </TouchableOpacity>
-          ))}
-          <TouchableOpacity 
-            style={[styles.categoryChip, styles.viewAllChip]}
-            onPress={() => setSelectedCategory('')} // Clear category filter
-          >
-            <Text style={[styles.categoryText, styles.viewAllText]}>View All</Text>
-          </TouchableOpacity>
-        </ScrollView>
-      </View>
-
-      {/* Price filter buttons and range display */}
-      <View style={styles.priceFilterContainer}>
-        <View style={styles.priceAdjustGroup}>
-          <Text style={styles.priceLabel}>Min Price:</Text>
-          <TouchableOpacity
-            style={styles.priceAdjustButton}
-            onPress={handleMinDecrement}
-          >
-            <Text style={styles.priceAdjustText}>-</Text>
-          </TouchableOpacity>
-          <Text style={styles.priceRangeText}>₱{priceRange.min}</Text>
-          <TouchableOpacity
-            style={styles.priceAdjustButton}
-            onPress={handleMinIncrement}
-          >
-            <Text style={styles.priceAdjustText}>+</Text>
-          </TouchableOpacity>
+          </ScrollView>
         </View>
-        <View style={styles.priceAdjustGroup}>
-          <Text style={styles.priceLabel}>Max Price:</Text>
-          <TouchableOpacity
-            style={styles.priceAdjustButton}
-            onPress={handleMaxDecrement}
-          >
-            <Text style={styles.priceAdjustText}>-</Text>
-          </TouchableOpacity>
-          <Text style={styles.priceRangeText}>
-            ₱{priceRange.max === Infinity ? 'Above' : priceRange.max}
-          </Text>
-          <TouchableOpacity
-            style={styles.priceAdjustButton}
-            onPress={handleMaxIncrement}
-          >
-            <Text style={styles.priceAdjustText}>+</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
+      )}
 
+      {/* Books List */}
       {loading ? (
         <View style={styles.loaderContainer}>
           <ActivityIndicator size="large" color={COLORS.primary} />
@@ -224,13 +201,13 @@ const BooksScreen = ({ navigation }) => {
       ) : error ? (
         <View style={styles.errorContainer}>
           <Text style={styles.errorText}>{error}</Text>
-          <TouchableOpacity style={styles.retryButton} onPress={handleRetry}>
+          <TouchableOpacity style={styles.retryButton} onPress={() => dispatch(fetchBooks())}>
             <Text style={styles.retryText}>Retry</Text>
           </TouchableOpacity>
         </View>
       ) : (
         <FlatList
-          data={filteredBooks} // Use filteredBooks instead of books
+          data={filteredBooks}
           renderItem={({ item }) => (
             <BookCard 
               book={item} 
@@ -242,11 +219,6 @@ const BooksScreen = ({ navigation }) => {
           numColumns={2}
           contentContainerStyle={styles.listContainer}
           showsVerticalScrollIndicator={false}
-          ListHeaderComponent={
-            <View style={styles.headerContainer}>
-              <Text style={styles.sectionTitle}>Popular Books</Text>
-            </View>
-          }
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
               <Text style={styles.emptyText}>No books found</Text>
@@ -254,6 +226,131 @@ const BooksScreen = ({ navigation }) => {
           }
         />
       )}
+
+      {/* Filter Drawer */}
+      <Modal
+        visible={showFilterModal}
+        transparent={true}
+        animationType="none"
+        onRequestClose={() => setShowFilterModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <Animated.View 
+            style={[
+              styles.drawerContent,
+              {
+                transform: [{ translateX: slideAnim }]
+              }
+            ]}
+          >
+            <View style={styles.drawerHeader}>
+              <Text style={styles.modalTitle}>Filter Books</Text>
+              <TouchableOpacity onPress={() => setShowFilterModal(false)}>
+                <Ionicons name="close" size={24} color={COLORS.onBackground} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.modalBody}>
+              {/* Categories */}
+              <Text style={styles.filterSectionTitle}>Categories (Select Multiple)</Text>
+              <View style={styles.categoriesContainer}>
+                {['Fiction', 'Non-Fiction', 'Fantasy', 'Romance', 'Mystery', 'History', 'Horror', 'Action', 'Business'].map((category) => (
+                  <TouchableOpacity
+                    key={category}
+                    style={[
+                      styles.categoryChip,
+                      filters.categories.includes(category) && styles.selectedCategoryChip
+                    ]}
+                    onPress={() => toggleCategory(category)}
+                  >
+                    <Text style={[
+                      styles.categoryText,
+                      filters.categories.includes(category) && styles.selectedCategoryText
+                    ]}>
+                      {category}
+                    </Text>
+                    {filters.categories.includes(category) && (
+                      <Ionicons 
+                        name="checkmark" 
+                        size={16} 
+                        color={COLORS.white} 
+                        style={styles.categoryCheckmark}
+                      />
+                    )}
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              {/* Price Range */}
+              <Text style={styles.filterSectionTitle}>Price Range</Text>
+              <View style={styles.priceRangeContainer}>
+                <View style={styles.priceInputContainer}>
+                  <Text style={styles.priceLabel}>Min Price:</Text>
+                  <TextInput
+                    style={styles.priceInput}
+                    value={filters.priceRange.min}
+                    onChangeText={(value) => handlePriceChange('min', value)}
+                    keyboardType="numeric"
+                    placeholder="0"
+                  />
+                </View>
+                <View style={styles.priceInputContainer}>
+                  <Text style={styles.priceLabel}>Max Price:</Text>
+                  <TextInput
+                    style={styles.priceInput}
+                    value={filters.priceRange.max}
+                    onChangeText={(value) => handlePriceChange('max', value)}
+                    keyboardType="numeric"
+                    placeholder="2000"
+                  />
+                </View>
+              </View>
+
+              {/* Sort By */}
+              <Text style={styles.filterSectionTitle}>Sort By</Text>
+              {[
+                { key: 'newest', label: 'Newest First' },
+                { key: 'price_low', label: 'Price: Low to High' },
+                { key: 'price_high', label: 'Price: High to Low' }
+              ].map((option) => (
+                <TouchableOpacity
+                  key={option.key}
+                  style={[
+                    styles.sortOption,
+                    filters.sortBy === option.key && styles.selectedSortOption
+                  ]}
+                  onPress={() => setFilters({ ...filters, sortBy: option.key })}
+                >
+                  <Text style={[
+                    styles.sortOptionText,
+                    filters.sortBy === option.key && styles.selectedSortOptionText
+                  ]}>
+                    {option.label}
+                  </Text>
+                  {filters.sortBy === option.key && (
+                    <Ionicons name="checkmark" size={20} color={COLORS.primary} />
+                  )}
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+
+            <View style={styles.modalFooter}>
+              <TouchableOpacity
+                style={[styles.footerButton, styles.clearButton]}
+                onPress={clearFilters}
+              >
+                <Text style={styles.clearButtonText}>Clear All</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.footerButton, styles.applyButton]}
+                onPress={() => setShowFilterModal(false)}
+              >
+                <Text style={styles.applyButtonText}>Apply Filters</Text>
+              </TouchableOpacity>
+            </View>
+          </Animated.View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -263,7 +360,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.background,
   },
-  quickSearchContainer: {
+  searchContainer: {
     paddingHorizontal: SIZES.medium,
     paddingVertical: SIZES.small,
   },
@@ -283,106 +380,175 @@ const styles = StyleSheet.create({
     ...FONTS.regular,
     color: COLORS.onBackground,
   },
-  newSearchContainer: {
+  activeFiltersContainer: {
+    paddingHorizontal: SIZES.medium,
+    paddingBottom: SIZES.small,
+  },
+  filterTag: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginHorizontal: SIZES.medium,
-    marginBottom: SIZES.small,
-  },
-  newSearchInput: {
-    flex: 1,
-    height: 40,
-    borderWidth: 1,
-    borderColor: COLORS.gray,
-    borderRadius: SIZES.radius,
-    paddingHorizontal: SIZES.base,
-    marginRight: SIZES.base,
-    ...FONTS.regular,
-    color: COLORS.onBackground,
-  },
-  newSearchButton: {
     backgroundColor: COLORS.primary,
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: SIZES.base,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    marginRight: 8,
   },
-  newSearchButtonText: {
-    ...FONTS.medium,
+  filterTagText: {
     color: COLORS.white,
-    fontSize: SIZES.medium,
+    marginRight: 8,
+    ...FONTS.medium,
+    fontSize: SIZES.small,
   },
-  categoryContainer: {
-    paddingHorizontal: SIZES.small,
-    marginBottom: SIZES.small,
+  clearAllButton: {
+    borderWidth: 1,
+    borderColor: COLORS.primary,
+    borderRadius: 20,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+  },
+  clearAllText: {
+    color: COLORS.primary,
+    ...FONTS.medium,
+    fontSize: SIZES.small,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-start',
+    alignItems: 'flex-end',
+  },
+  drawerContent: {
+    width: screenWidth * 0.85,
+    height: '100%',
+    backgroundColor: COLORS.background,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: -2,
+      height: 0,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  drawerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: SIZES.medium,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.lightGray,
+  },
+  modalTitle: {
+    ...FONTS.semibold,
+    fontSize: SIZES.large,
+  },
+  modalBody: {
+    padding: SIZES.medium,
+  },
+  filterSectionTitle: {
+    ...FONTS.semibold,
+    fontSize: SIZES.medium,
+    marginVertical: SIZES.small,
+  },
+  categoriesContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginBottom: SIZES.medium,
   },
   categoryChip: {
-    backgroundColor: COLORS.primary + '20',
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.lightGray,
     paddingVertical: 8,
     paddingHorizontal: 16,
     borderRadius: 20,
-    marginRight: 8,
-    borderWidth: 1,
-    borderColor: COLORS.primary,
-  },
-  categoryText: {
-    ...FONTS.medium,
-    fontSize: SIZES.small,
-    color: COLORS.primary,
-  },
-  viewAllChip: {
-    backgroundColor: COLORS.primary,
-  },
-  viewAllText: {
-    color: COLORS.white,
+    margin: 4,
   },
   selectedCategoryChip: {
     backgroundColor: COLORS.primary,
   },
+  categoryText: {
+    ...FONTS.medium,
+    fontSize: SIZES.small,
+    color: COLORS.onBackground,
+    marginRight: 4,
+  },
   selectedCategoryText: {
     color: COLORS.white,
   },
-  priceFilterContainer: {
-    marginHorizontal: SIZES.medium,
-    marginBottom: SIZES.small,
+  categoryCheckmark: {
+    marginLeft: 4,
   },
-  priceAdjustGroup: {
+  priceRangeContainer: {
+    marginBottom: SIZES.medium,
+    paddingHorizontal: SIZES.small,
+  },
+  priceInputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     marginBottom: SIZES.small,
   },
   priceLabel: {
-    ...FONTS.medium,
-    fontSize: SIZES.medium,
+    ...FONTS.regular,
+    width: 80,
     color: COLORS.onBackground,
+  },
+  priceInput: {
     flex: 1,
-  },
-  priceAdjustButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
+    height: 40,
+    borderWidth: 1,
+    borderColor: COLORS.lightGray,
     borderRadius: SIZES.base,
-    backgroundColor: COLORS.lightGray,
-    marginHorizontal: SIZES.base,
-  },
-  priceAdjustText: {
-    ...FONTS.medium,
-    fontSize: SIZES.large,
-    color: COLORS.onBackground,
-  },
-  priceRangeText: {
-    ...FONTS.medium,
-    fontSize: SIZES.medium,
-    color: COLORS.onBackground,
-    marginHorizontal: SIZES.base,
-  },
-  headerContainer: {
     paddingHorizontal: SIZES.small,
-    paddingBottom: SIZES.small,
+    ...FONTS.regular,
+    backgroundColor: COLORS.white,
   },
-  sectionTitle: {
-    ...FONTS.semibold,
-    fontSize: SIZES.large,
+  sortOption: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: SIZES.medium,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.lightGray,
+  },
+  selectedSortOption: {
+    backgroundColor: COLORS.lightPrimary,
+  },
+  sortOptionText: {
+    ...FONTS.regular,
     color: COLORS.onBackground,
+  },
+  selectedSortOptionText: {
+    ...FONTS.medium,
+    color: COLORS.primary,
+  },
+  modalFooter: {
+    flexDirection: 'row',
+    padding: SIZES.medium,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.lightGray,
+  },
+  footerButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: SIZES.base,
+    alignItems: 'center',
+  },
+  clearButton: {
+    marginRight: 8,
+    backgroundColor: COLORS.lightGray,
+  },
+  applyButton: {
+    backgroundColor: COLORS.primary,
+  },
+  clearButtonText: {
+    ...FONTS.medium,
+    color: COLORS.onBackground,
+  },
+  applyButtonText: {
+    ...FONTS.medium,
+    color: COLORS.white,
   },
   listContainer: {
     padding: SIZES.small,
@@ -396,37 +562,32 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: SIZES.large,
   },
   errorText: {
     ...FONTS.medium,
-    fontSize: SIZES.medium,
     color: COLORS.error,
-    textAlign: 'center',
     marginBottom: SIZES.medium,
   },
   retryButton: {
     backgroundColor: COLORS.primary,
-    paddingVertical: 10,
-    paddingHorizontal: 20,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
     borderRadius: SIZES.base,
   },
   retryText: {
     ...FONTS.medium,
-    color: '#fff',
-    fontSize: SIZES.medium,
+    color: COLORS.white,
   },
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 40,
+    padding: SIZES.extra_large,
   },
   emptyText: {
     ...FONTS.medium,
-    fontSize: SIZES.medium,
-    color: COLORS.onBackground,
-  },
+    color: COLORS.gray,
+  }
 });
 
 export default BooksScreen;

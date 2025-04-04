@@ -32,25 +32,6 @@ export const addToCart = (item) => async (dispatch) => {
   }
 };
 
-// export const addToCart = (item) => async (dispatch) => {
-//   try {
-//     const itemWithId = { ...item, product_id: item._id }; 
-//     console.log('Item being added to cart:', JSON.stringify(item, null, 2)); // log deeply
-//     if (!item.product_id) {
-//       throw new Error('Item is missing product_id');
-//     }
-//     await saveCartItem(item, 1);
-//     const cartItems = await getCartItems();
-//     dispatch({
-//       type: 'SET_CART_ITEMS',
-//       payload: cartItems,
-//     });
-//   } catch (error) {
-//     console.error('Error adding to cart:', error);
-//   }
-// };
-
-
 // Action to remove a book from the cart
 export const removeFromCart = (id) => async (dispatch) => {
   try {
@@ -69,7 +50,7 @@ export const removeFromCart = (id) => async (dispatch) => {
     console.error('Error removing from cart:', error);
   }
 };
-// Action to update the quantity of an item in the cart
+
 export const updateCartItemQuantityAction = (id, action) => async (dispatch) => {
   try {
     console.log('Updating item with ID:', id, 'Action:', action);
