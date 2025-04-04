@@ -90,7 +90,7 @@ const BookDetails = ({ route, navigation }) => {
   const handleAddToCart = () => {
     // Create a formatted cart item with all necessary information
     const cartItem = {
-      product_id: book._id,
+      _id: book._id, // Add _id field which will be used to create product_id
       product_name: book.title,
       product_price: book.price,
       product_image: book.coverImage?.[0] || '',
