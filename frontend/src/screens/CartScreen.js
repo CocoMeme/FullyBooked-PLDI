@@ -16,6 +16,7 @@ import Header from '../components/Header';
 import { useDispatch } from 'react-redux';
 import { clearCart, removeFromCart, updateCartItemQuantityAction } from '../redux/actions/cartActions';
 import { getCartItems,updateCartItemQuantity } from '../services/database';
+import { API_URL } from '../services/api';
 
 const CartScreen = ({ navigation }) => {
   const [cartItems, setCartItems] = useState([]);
@@ -131,25 +132,49 @@ const CartScreen = ({ navigation }) => {
         Alert.alert('Error', 'Your cart is empty. Add items to proceed.');
         return;
       }
-
-      // Simulate sending order details to a backend or saving locally
+  
+      // Prepare order details
       const orderDetails = {
-        items: cartItems,
-        totalAmount,
-        orderDate: new Date().toISOString(),
+        products: cartItems.map((item) => ({
+          productId: item.product_id,
+          quantity: item.quantity,
+          price: item.product_price,
+        })),
+        paymentMethod: 'COD', // Example payment method
       };
-
+  
       console.log('Placing order:', orderDetails);
+  
+        // Retrieve the token from AsyncStorage
+    const token = await AsyncStorage.getItem('authToken');
+    if (!token) {
+      Alert.alert('Error', 'User not authenticated. Please log in.');
+      return;
+    }
 
-      // Simulate API call (replace with actual API call if needed)
-      await new Promise((resolve) => setTimeout(resolve, 2000)); // Simulate delay
-
-      // Clear the cart after successful order placement
-      dispatch(clearCart());
-      setCartItems([]);
-      setTotalAmount(0);
-
-      Alert.alert('Success', 'Your order has been placed successfully!');
+      // Send order details to the backend
+      const response = await fetch(`${API_URL}orders/place`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`, 
+        },
+        body: JSON.stringify(orderDetails),
+      });
+  
+      const result = await response.json();
+  
+      if (response.ok) {
+        // Clear the cart after successful order placement
+        dispatch(clearCart());
+        setCartItems([]);
+        setTotalAmount(0);
+  
+        Alert.alert('Success', 'Your order has been placed successfully!');
+      } else {
+        console.error('Error placing order:', result);
+        Alert.alert('Error', result.message || 'Failed to place the order. Please try again.');
+      }
     } catch (error) {
       console.error('Error placing order:', error);
       Alert.alert('Error', 'Failed to place the order. Please try again.');
