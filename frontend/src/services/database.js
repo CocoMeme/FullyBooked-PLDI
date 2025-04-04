@@ -9,7 +9,7 @@ export const initDatabase = async () => {
       db = await SQLite.openDatabaseAsync('cartdb.db');
       console.log('Database opened successfully', db);
 
-      // Create table using execAsync
+      // First create the table if it doesn't exist (with original schema)
       await db.execAsync(`
         CREATE TABLE IF NOT EXISTS cart_items (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -21,6 +21,18 @@ export const initDatabase = async () => {
           timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
         );
       `);
+
+      // Check if discountPrice column exists, if not add it
+      try {
+        // Try to get column info
+        await db.getFirstAsync(`SELECT discountPrice FROM cart_items LIMIT 1`);
+        console.log('discountPrice column already exists');
+      } catch (error) {
+        // Column doesn't exist, add it
+        console.log('Adding discountPrice column to cart_items table');
+        await db.execAsync(`ALTER TABLE cart_items ADD COLUMN discountPrice REAL;`);
+        console.log('discountPrice column added successfully');
+      }
 
       console.log('Database initialized successfully');
       return db;
@@ -54,10 +66,11 @@ export const saveCartItem = async (item, quantity) => {
       console.log('Existing item:', existingItem);
   
       if (existingItem) {
-        // ✅ If the item exists, update its quantity (overwrite with new quantity)
+        // ✅ If the item exists, update its quantity and possibly discountPrice (if present in the new item)
+        const discountPrice = item.discountPrice || existingItem.discountPrice;
         await db.runAsync(
-          'UPDATE cart_items SET quantity = ? WHERE product_id = ?',
-          [quantity, item.product_id]
+          'UPDATE cart_items SET quantity = ?, discountPrice = ? WHERE product_id = ?',
+          [quantity, discountPrice, item.product_id]
         );
         console.log(`Updated quantity for product_id: ${item.product_id} to ${quantity}`);
       } else {
@@ -65,6 +78,8 @@ export const saveCartItem = async (item, quantity) => {
         const product_name = item.title || item.product_name || 'Unknown Item';
         const product_price = item.price || item.product_price || 0;
         const product_image = item.coverImage?.[0] || item.product_image || '';
+        // Extract discount price if available
+        const discountPrice = item.discountPrice || (item.tag === 'Sale' ? item.discountPrice : null);
   
         // ✅ Insert a new item into the cart
         await db.runAsync(
@@ -72,13 +87,15 @@ export const saveCartItem = async (item, quantity) => {
             product_id,
             product_name,
             product_price,
+            discountPrice,
             product_image,
             quantity
-          ) VALUES (?, ?, ?, ?, ?)`,
+          ) VALUES (?, ?, ?, ?, ?, ?)`,
           [
             item.product_id,
             product_name,
             product_price,
+            discountPrice,
             product_image,
             quantity,
           ]
@@ -106,6 +123,7 @@ export const getCartItems = async () => {
       product_id: item.product_id,
       product_name: item.product_name,
       product_price: item.product_price,
+      discountPrice: item.discountPrice,
       product_image: item.product_image,
       quantity: item.quantity,
     }));
@@ -137,11 +155,18 @@ export const updateCartItemQuantity = async (productId, quantity) => {
   }
 
   try {
-    // Use runAsync instead of executeSql
+    // First, make sure we keep any existing discountPrice value
+    const existingItem = await db.getFirstAsync(
+      'SELECT discountPrice FROM cart_items WHERE product_id = ?',
+      [productId]
+    );
+    
+    // Then update with the quantity (preserving discount price)
     await db.runAsync(
       'UPDATE cart_items SET quantity = ? WHERE product_id = ?',
       [quantity, productId]
     );
+    
     console.log(`Quantity updated in database for product ID: ${productId} to ${quantity}`);
   } catch (error) {
     console.error('Error updating cart item quantity in database:', error);

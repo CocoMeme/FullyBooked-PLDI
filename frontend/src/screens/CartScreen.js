@@ -21,12 +21,14 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { clearCart, removeFromCart } from '../redux/actions/cartActions';
 import { getCartItems, updateCartItemQuantity } from '../services/database'; // SQLite functions
 import API_URL from '../services/api';
-import { FontAwesome, MaterialIcons } from '@expo/vector-icons';
+import { FontAwesome, MaterialIcons, Ionicons, AntDesign, MaterialCommunityIcons } from '@expo/vector-icons';
 
 const CartScreen = ({ navigation }) => {
   const [cartItems, setCartItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [totalAmount, setTotalAmount] = useState(0);
+  const [discountAmount, setDiscountAmount] = useState(0);
+  const [finalAmount, setFinalAmount] = useState(0);
   const [paymentMethod, setPaymentMethod] = useState('COD'); // Default payment method
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const dispatch = useDispatch();
@@ -45,12 +47,19 @@ const CartScreen = ({ navigation }) => {
   // Calculate total amount whenever cart items change
   useEffect(() => {
     let total = 0;
+    let discount = 0;
 
     cartItems.forEach((item) => {
       total += item.product_price * item.quantity;
+      // Calculate discount if discountPrice exists
+      if (item.discountPrice && item.discountPrice < item.product_price) {
+        discount += (item.product_price - item.discountPrice) * item.quantity;
+      }
     });
 
     setTotalAmount(total);
+    setDiscountAmount(discount);
+    setFinalAmount(total - discount);
   }, [cartItems]);
 
   // Load cart items from SQLite database
@@ -120,6 +129,8 @@ const CartScreen = ({ navigation }) => {
       dispatch(clearCart());
       setCartItems([]);
       setTotalAmount(0);
+      setDiscountAmount(0);
+      setFinalAmount(0);
       Alert.alert('Success', 'Cart cleared successfully');
     } catch (error) {
       console.error('Error clearing cart:', error);
@@ -140,6 +151,7 @@ const CartScreen = ({ navigation }) => {
           productId: item.product_id,
           quantity: item.quantity,
           price: item.product_price,
+          discountPrice: item.discountPrice || item.product_price,
         })),
         paymentMethod: paymentMethod, // Use selected payment method
       };
@@ -172,6 +184,8 @@ const CartScreen = ({ navigation }) => {
         dispatch(clearCart());
         setCartItems([]);
         setTotalAmount(0);
+        setDiscountAmount(0);
+        setFinalAmount(0);
   
         Alert.alert('Success', 'Your order has been placed successfully!');
       } else {
@@ -184,47 +198,77 @@ const CartScreen = ({ navigation }) => {
     }
   };
 
+  // Get payment method icon
+  const getPaymentMethodIcon = (method) => {
+    switch (method) {
+      case 'COD':
+        return <MaterialIcons name="attach-money" size={24} color={COLORS.primary} />;
+      case 'Card':
+        return <AntDesign name="creditcard" size={24} color={COLORS.primary} />;
+      case 'PayPal':
+        return <FontAwesome name="paypal" size={24} color={COLORS.primary} />;
+      case 'Bank Transfer':
+        return <MaterialCommunityIcons name="bank-transfer" size={24} color={COLORS.primary} />;
+      default:
+        return <MaterialIcons name="attach-money" size={24} color={COLORS.primary} />;
+    }
+  };
+
   // Render a single cart item
-  const renderCartItem = ({ item }) => (
-    <View style={styles.cartItem}>
-      <TouchableOpacity 
-        style={styles.removeButton}
-        onPress={() => removeItem(item.product_id)}
-      >
-        <Text style={styles.removeButtonText}>X</Text>
-      </TouchableOpacity>
-      
-      <Image 
-        source={{ uri: item.product_image || 'https://via.placeholder.com/100' }}
-        style={styles.bookCover}
-        resizeMode="cover"
-      />
-      
-      <View style={styles.itemDetails}>
-        <Text style={styles.bookTitle} numberOfLines={2}>{item.product_name}</Text>
-        <Text style={styles.price}>₱{item.product_price.toFixed(2)}</Text>
-      </View>
-      
-      <View style={styles.quantityControlsContainer}>
+  const renderCartItem = ({ item }) => {
+    const hasDiscount = item.discountPrice && item.discountPrice < item.product_price;
+    
+    return (
+      <View style={styles.cartItem}>
         <TouchableOpacity 
-          style={[styles.quantityButton, item.quantity <= 1 && styles.disabledButton]} 
-          onPress={() => updateQuantity(item.product_id, 'decrease')}
-          disabled={item.quantity <= 1}
+          style={styles.removeButton}
+          onPress={() => removeItem(item.product_id)}
         >
-          <Text style={styles.quantityButtonText}>-</Text>
+          <AntDesign name="close" size={18} color={COLORS.white} />
         </TouchableOpacity>
         
-        <Text style={styles.quantityText}>{item.quantity}</Text>
+        <Image 
+          source={{ uri: item.product_image || 'https://via.placeholder.com/100' }}
+          style={styles.bookCover}
+          resizeMode="cover"
+        />
         
-        <TouchableOpacity 
-          style={styles.quantityButton} 
-          onPress={() => updateQuantity(item.product_id, 'increase')}
-        >
-          <Text style={styles.quantityButtonText}>+</Text>
-        </TouchableOpacity>
+        <View style={styles.itemDetails}>
+          <Text style={styles.bookTitle} numberOfLines={2}>{item.product_name}</Text>
+          
+          <View style={styles.priceContainer}>
+            {hasDiscount ? (
+              <>
+                <Text style={styles.originalPrice}>₱{item.product_price.toFixed(2)}</Text>
+                <Text style={styles.discountPrice}>₱{item.discountPrice.toFixed(2)}</Text>
+              </>
+            ) : (
+              <Text style={styles.price}>₱{item.product_price.toFixed(2)}</Text>
+            )}
+          </View>
+          
+          <View style={styles.quantityControlsContainer}>
+            <TouchableOpacity 
+              style={[styles.quantityButton, item.quantity <= 1 && styles.disabledButton]} 
+              onPress={() => updateQuantity(item.product_id, 'decrease')}
+              disabled={item.quantity <= 1}
+            >
+              <AntDesign name="minus" size={16} color={COLORS.white} />
+            </TouchableOpacity>
+            
+            <Text style={styles.quantityText}>{item.quantity}</Text>
+            
+            <TouchableOpacity 
+              style={styles.quantityButton} 
+              onPress={() => updateQuantity(item.product_id, 'increase')}
+            >
+              <AntDesign name="plus" size={16} color={COLORS.white} />
+            </TouchableOpacity>
+          </View>
+        </View>
       </View>
-    </View>
-  );
+    );
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -246,6 +290,7 @@ const CartScreen = ({ navigation }) => {
         </View>
       ) : cartItems.length === 0 ? (
         <View style={styles.emptyCartContainer}>
+          <MaterialCommunityIcons name="cart-outline" size={80} color={COLORS.gray} />
           <Text style={styles.emptyCartText}>Your cart is empty</Text>
           <Button 
             title="Browse Books" 
@@ -264,25 +309,49 @@ const CartScreen = ({ navigation }) => {
           />
           
           <View style={styles.checkoutContainer}>
-            <View style={styles.totalContainer}>
-              <Text style={styles.totalLabel}>Total:</Text>
-              <Text style={styles.totalAmount}>₱{totalAmount.toFixed(2)}</Text>
+            <View style={styles.priceBreakdownContainer}>
+              <View style={styles.priceRow}>
+                <Text style={styles.priceLabel}>Subtotal:</Text>
+                <Text style={styles.priceValue}>₱{totalAmount.toFixed(2)}</Text>
+              </View>
+              
+              {discountAmount > 0 && (
+                <View style={styles.priceRow}>
+                  <Text style={styles.priceLabel}>Discount:</Text>
+                  <Text style={styles.discountValue}>-₱{discountAmount.toFixed(2)}</Text>
+                </View>
+              )}
+              
+              <View style={styles.totalRow}>
+                <Text style={styles.totalLabel}>Total:</Text>
+                <Text style={styles.totalAmount}>₱{finalAmount.toFixed(2)}</Text>
+              </View>
             </View>
             
             <TouchableOpacity 
               style={styles.paymentMethodSelector}
               onPress={() => setShowPaymentModal(true)}
             >
-              <Text style={styles.paymentMethodLabel}>Payment Method:</Text>
-              <Text style={styles.paymentMethodText}>
-                {paymentMethod === 'COD' ? 'Cash On Delivery' : paymentMethod}
-              </Text>
+              <View style={styles.paymentMethodHeader}>
+                <Text style={styles.paymentMethodLabel}>Payment Method</Text>
+                <MaterialIcons name="keyboard-arrow-down" size={24} color={COLORS.primary} />
+              </View>
+              
+              <View style={styles.selectedPaymentMethod}>
+                {getPaymentMethodIcon(paymentMethod)}
+                <Text style={styles.paymentMethodText}>
+                  {paymentMethod === 'COD' ? 'Cash On Delivery' : 
+                   paymentMethod === 'Card' ? 'Credit/Debit Card' : 
+                   paymentMethod === 'PayPal' ? 'PayPal' : 'Bank Transfer'}
+                </Text>
+              </View>
             </TouchableOpacity>
             
             <Button 
               title="Proceed to Checkout" 
               onPress={placeOrder}
               style={styles.checkoutButton}
+              icon={<MaterialIcons name="shopping-cart-checkout" size={20} color={COLORS.white} style={styles.buttonIcon} />}
             />
           </View>
           
@@ -294,25 +363,56 @@ const CartScreen = ({ navigation }) => {
           >
             <View style={styles.modalOverlay}>
               <View style={styles.modalContent}>
-                <Text style={styles.modalTitle}>Select Payment Method</Text>
+                <View style={styles.modalHeader}>
+                  <Text style={styles.modalTitle}>Select Payment Method</Text>
+                  <TouchableOpacity onPress={() => setShowPaymentModal(false)}>
+                    <AntDesign name="close" size={24} color={COLORS.darkGray} />
+                  </TouchableOpacity>
+                </View>
+                
                 <ScrollView>
                   <TouchableOpacity 
-                    style={styles.paymentOption}
+                    style={[styles.paymentOption, paymentMethod === 'COD' && styles.selectedPaymentOption]}
                     onPress={() => {
                       setPaymentMethod('COD');
                       setShowPaymentModal(false);
                     }}
                   >
-                    <Text>Cash On Delivery</Text>
+                    <MaterialIcons name="attach-money" size={24} color={COLORS.primary} />
+                    <Text style={styles.paymentOptionText}>Cash On Delivery</Text>
                   </TouchableOpacity>
+                  
                   <TouchableOpacity 
-                    style={styles.paymentOption}
+                    style={[styles.paymentOption, paymentMethod === 'Card' && styles.selectedPaymentOption]}
                     onPress={() => {
                       setPaymentMethod('Card');
                       setShowPaymentModal(false);
                     }}
                   >
-                    <Text>Credit/Debit Card</Text>
+                    <AntDesign name="creditcard" size={24} color={COLORS.primary} />
+                    <Text style={styles.paymentOptionText}>Credit/Debit Card</Text>
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity 
+                    style={[styles.paymentOption, paymentMethod === 'PayPal' && styles.selectedPaymentOption]}
+                    onPress={() => {
+                      setPaymentMethod('PayPal');
+                      setShowPaymentModal(false);
+                    }}
+                  >
+                    <FontAwesome name="paypal" size={24} color={COLORS.primary} />
+                    <Text style={styles.paymentOptionText}>PayPal</Text>
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity 
+                    style={[styles.paymentOption, paymentMethod === 'Bank Transfer' && styles.selectedPaymentOption]}
+                    onPress={() => {
+                      setPaymentMethod('Bank Transfer');
+                      setShowPaymentModal(false);
+                    }}
+                  >
+                    <MaterialCommunityIcons name="bank-transfer" size={24} color={COLORS.primary} />
+                    <Text style={styles.paymentOptionText}>Bank Transfer</Text>
                   </TouchableOpacity>
                 </ScrollView>
               </View>
@@ -338,36 +438,80 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    padding: 20,
   },
   emptyCartText: {
     fontSize: 18,
     color: COLORS.gray,
+    marginTop: 10,
+    marginBottom: 20,
+  },
+  browseButton: {
+    width: '60%',
   },
   listContainer: {
-    padding: 10,
+    padding: 15,
+    paddingBottom: 20,
   },
   cartItem: {
     flexDirection: 'row',
-    marginBottom: 10,
-    padding: 10,
+    marginBottom: 15,
+    padding: 15,
     backgroundColor: '#fff',
-    borderRadius: 5,
+    borderRadius: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  removeButton: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: 'transparent', // Changed from COLORS.error to transparent
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1,
   },
   bookCover: {
-    width: 50,
-    height: 70,
+    width: 60,
+    height: 85,
+    borderRadius: 6,
   },
   itemDetails: {
     flex: 1,
-    marginLeft: 10,
+    marginLeft: 15,
+    justifyContent: 'space-between',
   },
   bookTitle: {
     fontSize: 16,
     fontWeight: 'bold',
+    marginBottom: 5,
+  },
+  priceContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 5,
   },
   price: {
-    fontSize: 14,
+    fontSize: 16,
     color: COLORS.primary,
+    fontWeight: 'bold',
+  },
+  originalPrice: {
+    fontSize: 14,
+    color: COLORS.gray,
+    textDecorationLine: 'line-through',
+    marginRight: 8,
+  },
+  discountPrice: {
+    fontSize: 16,
+    color: COLORS.primary,
+    fontWeight: 'bold',
   },
   quantityControlsContainer: {
     flexDirection: 'row',
@@ -381,62 +525,139 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.primary,
     borderRadius: 15,
   },
+  disabledButton: {
+    backgroundColor: COLORS.lightGray,
+  },
   quantityText: {
-    marginHorizontal: 10,
-    fontSize: 16,
-  },
-  checkoutContainer: {
-    padding: 10,
-    backgroundColor: '#fff',
-  },
-  totalContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 10,
-  },
-  totalLabel: {
+    marginHorizontal: 15,
     fontSize: 16,
     fontWeight: 'bold',
   },
-  totalAmount: {
-    fontSize: 16,
+  clearButtonText: {
     color: COLORS.primary,
+    fontSize: 14,
+    fontWeight: '600',
   },
-  paymentMethodSelector: {
-    marginBottom: 10,
+  checkoutContainer: {
+    padding: 15,
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -3 },
+    shadowOpacity: 0.1,
+    shadowRadius: 5,
+    elevation: 5,
   },
-  paymentMethodLabel: {
+  priceBreakdownContainer: {
+    marginBottom: 15,
+    paddingBottom: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.lightGray,
+  },
+  priceRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  priceLabel: {
     fontSize: 14,
     color: COLORS.gray,
   },
+  priceValue: {
+    fontSize: 14,
+    color: COLORS.darkGray,
+  },
+  discountValue: {
+    fontSize: 14,
+    color: COLORS.success,
+    fontWeight: '600',
+  },
+  totalRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 10,
+  },
+  totalLabel: {
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  totalAmount: {
+    fontSize: 18,
+    color: COLORS.primary,
+    fontWeight: 'bold',
+  },
+  paymentMethodSelector: {
+    marginBottom: 10, // Reduced from 15
+    padding: 8, // Reduced from 12
+    backgroundColor: COLORS.lightBackground,
+    borderRadius: 10,
+  },
+  paymentMethodHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 5, // Reduced from 8
+  },
+  selectedPaymentMethod: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   paymentMethodText: {
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: '600',
+    marginLeft: 10,
   },
   checkoutButton: {
     marginTop: 10,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  buttonIcon: {
+    marginRight: 10,
   },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: 'flex-end',
   },
   modalContent: {
-    width: '80%',
     backgroundColor: '#fff',
     padding: 20,
-    borderRadius: 10,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '70%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+    paddingBottom: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.lightGray,
   },
   modalTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    marginBottom: 10,
   },
   paymentOption: {
-    padding: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#ccc',
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 15,
+    borderRadius: 10,
+    marginBottom: 10,
+    backgroundColor: COLORS.lightBackground,
+  },
+  selectedPaymentOption: {
+    backgroundColor: COLORS.lightPrimary,
+    borderWidth: 1,
+    borderColor: COLORS.primary,
+  },
+  paymentOptionText: {
+    fontSize: 16,
+    marginLeft: 15,
   },
 });
 
