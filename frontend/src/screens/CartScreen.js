@@ -15,10 +15,11 @@ import {
 import { COLORS, FONTS, SIZES } from '../constants/theme';
 import Button from '../components/Button';
 import Header from '../components/Header';
-import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { clearCart, removeFromCart } from '../redux/actions/cartActions';
+import { placeOrder } from '../redux/actions/orderActions';
 import { getCartItems, updateCartItemQuantity } from '../services/database'; // SQLite functions
 import API_URL from '../services/api';
 import { FontAwesome, MaterialIcons, Ionicons, AntDesign, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -139,62 +140,53 @@ const CartScreen = ({ navigation }) => {
   };
 
   // Place order function
-  const placeOrder = async () => {
+  const handlePlaceOrder = async () => {
     try {
       if (cartItems.length === 0) {
         Alert.alert('Error', 'Your cart is empty. Add items to proceed.');
         return;
       }
-  
-      const orderDetails = {
+
+      // Format order data to match backend expectations
+      const orderData = {
         products: cartItems.map((item) => ({
           productId: item.product_id,
           quantity: item.quantity,
-          price: item.product_price,
-          discountPrice: item.discountPrice || item.product_price,
+          price: item.discountPrice || item.product_price,
         })),
-        paymentMethod: paymentMethod, // Use selected payment method
+        paymentMethod,
+        totalAmount: finalAmount
       };
-  
-      console.log('Placing order:', orderDetails);
-  
-      // Debug log for the full API URL
-      console.log('Full API URL for placing order:', `${API_URL}orders/place`);
-  
-      const token = await AsyncStorage.getItem('jwt');
-      if (!token) {
-        Alert.alert('Error', 'User not authenticated. Please log in.');
-        navigation.navigate('Login');
-        return;
-      }
-  
-      // Use axios.post to send the request
-      const response = await axios.post(
-        `${API_URL}orders/place`,
-        orderDetails,
-        {
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
+
+      // Dispatch the order action
+      await dispatch(placeOrder(orderData));
+
+      // Clear cart and reset state after successful order
+      setCartItems([]);
+      setTotalAmount(0);
+      setDiscountAmount(0);
+      setFinalAmount(0);
+      
+      Alert.alert(
+        'Success',
+        'Order placed successfully!',
+        [
+          {
+            text: 'View Orders',
+            onPress: () => navigation.navigate('MyOrders'),
           },
-        }
+          {
+            text: 'Continue Shopping',
+            onPress: () => navigation.navigate('Books'),
+          },
+        ]
       );
-  
-      if (response.status === 200 || response.status === 201) {
-        dispatch(clearCart());
-        setCartItems([]);
-        setTotalAmount(0);
-        setDiscountAmount(0);
-        setFinalAmount(0);
-  
-        Alert.alert('Success', 'Your order has been placed successfully!');
-      } else {
-        console.error('Error placing order:', response.data);
-        Alert.alert('Error', response.data.message || 'Failed to place the order. Please try again.');
-      }
     } catch (error) {
       console.error('Error placing order:', error);
-      Alert.alert('Error', error.response?.data?.message || 'Failed to place the order. Please try again.');
+      Alert.alert(
+        'Error',
+        error.response?.data?.message || 'Failed to place order. Please try again.'
+      );
     }
   };
 
@@ -349,7 +341,7 @@ const CartScreen = ({ navigation }) => {
             
             <Button 
               title="Proceed to Checkout" 
-              onPress={placeOrder}
+              onPress={handlePlaceOrder}
               style={styles.checkoutButton}
               icon={<MaterialIcons name="shopping-cart-checkout" size={20} color={COLORS.white} style={styles.buttonIcon} />}
             />

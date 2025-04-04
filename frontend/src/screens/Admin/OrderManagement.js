@@ -1,6 +1,4 @@
-import React, { useState, useEffect } from 'react';
-import axios from 'axios';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import React, { useEffect } from 'react';
 import { 
   View, 
   Text, 
@@ -11,63 +9,55 @@ import {
   FlatList,
   Platform
 } from 'react-native';
+import { useDispatch, useSelector } from 'react-redux';
 import { Ionicons } from '@expo/vector-icons';
 import Header from '../../components/Header';
 import { COLORS, FONTS, SIZES } from '../../constants/theme';
-import API_URL from '../../services/api';
+import { fetchAllOrders, updateOrderStatus } from '../../redux/actions/orderActions';
 
 const OrderManagement = ({ navigation }) => {
-  const [orders, setOrders] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const dispatch = useDispatch();
+  const { orders, loading, error } = useSelector(state => state.orders);
 
   useEffect(() => {
     fetchOrders();
-    console.log('Fetching orders...', orders);
   }, []);
 
   const fetchOrders = async () => {
     try {
-      setLoading(true);
-  
-      // Get the JWT token from AsyncStorage
-      const token = await AsyncStorage.getItem('jwt');
-  
-      if (!token) {
-        Alert.alert('Authentication Error', 'You need to be logged in to access this feature');
-        setLoading(false);
-        return;
-      }
-  
-      // Fetch orders with customer details
-      const response = await axios.get(`${API_URL}orders/all`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Cache-Control': 'no-cache', // Prevent caching
-        },
-      });
-  
-      // Ensure orders is always an array and include customer details
-      const fetchedOrders = response.data.orders.map((order) => ({
-        ...order,
-        customerName: order.user?.name || 'Unknown', // Assuming `user` contains customer details
-        customerEmail: order.user?.email || 'N/A',
-      }));
-  
-      setOrders(fetchedOrders);
-      console.log('Orders fetched successfully:', fetchedOrders.length, 'orders');
+      await dispatch(fetchAllOrders());
     } catch (error) {
-      console.error('Error fetching orders:', error);
-  
-      // More specific error message based on status code
       if (error.response?.status === 401) {
-        Alert.alert('Authentication Error', 'You are not authorized to access this data. Please log in again.');
+        Alert.alert('Authentication Error', 'You need to be logged in to access this feature');
       } else if (error.response?.status === 403) {
         Alert.alert('Permission Error', 'You do not have permission to view orders. Admin access required.');
       } else {
         Alert.alert('Error', 'Failed to load orders. Please try again later.');
       }
-    } finally {
-      setLoading(false);
+    }
+  };
+
+  const handleUpdateStatus = (orderId) => {
+    Alert.alert(
+      'Update Order Status',
+      'Select new status',
+      [
+        { text: 'Pending', onPress: () => handleStatusChange(orderId, 'Pending') },
+        { text: 'Shipped', onPress: () => handleStatusChange(orderId, 'Shipped') },
+        { text: 'Delivered', onPress: () => handleStatusChange(orderId, 'Delivered') },
+        { text: 'Cancelled', onPress: () => handleStatusChange(orderId, 'Cancelled') },
+        { text: 'Cancel', style: 'cancel' }
+      ]
+    );
+  };
+
+  const handleStatusChange = async (orderId, newStatus) => {
+    try {
+      await dispatch(updateOrderStatus(orderId, newStatus));
+      Alert.alert('Success', 'Order status updated successfully');
+    } catch (error) {
+      console.error('Error updating order status:', error);
+      Alert.alert('Error', 'Failed to update order status');
     }
   };
 
@@ -83,47 +73,6 @@ const OrderManagement = ({ navigation }) => {
         return '#F44336'; // Red
       default:
         return COLORS.secondary;
-    }
-  };
-
-  const handleUpdateStatus = (orderId) => {
-    Alert.alert(
-      'Update Order Status',
-      'Select new status',
-      [
-        { text: 'Pending', onPress: () => updateOrderStatus(orderId, 'Pending') },
-        { text: 'Shipped', onPress: () => updateOrderStatus(orderId, 'Shipped') },
-        { text: 'Delivered', onPress: () => updateOrderStatus(orderId, 'Delivered') },
-        { text: 'Cancelled', onPress: () => updateOrderStatus(orderId, 'Cancelled') },
-        { text: 'Cancel', style: 'cancel' }
-      ]
-    );
-  };
-
-  const updateOrderStatus = async (orderId, newStatus) => {
-    try {
-      const token = await AsyncStorage.getItem('jwt'); // Retrieve the JWT token from storage
-      const response = await axios.put(
-        `${API_URL}orders/update-status/${orderId}`,
-        { status: newStatus },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`, // Include the token in the Authorization header
-          },
-        }
-      );
-  
-      if (response.status === 200) {
-        setOrders(orders.map(order => 
-          order._id === orderId ? { ...order, status: newStatus } : order
-        ));
-        Alert.alert('Success', 'Order status updated successfully');
-      } else {
-        Alert.alert('Error', 'Failed to update order status');
-      }
-    } catch (error) {
-      console.error('Error updating order status:', error);
-      Alert.alert('Error', 'Failed to update order status');
     }
   };
 

@@ -9,127 +9,130 @@ import {
   Alert,
   Platform
 } from 'react-native';
+import { useDispatch, useSelector } from 'react-redux';
 import { COLORS, FONTS, SIZES } from '../../constants/theme';
 import Header from '../../components/Header';
 import AuthGlobal from '../../context/store/AuthGlobal';
 import OrderHistory from '../../components/Account Components/OrderHistory';
 import ToReceive from '../../components/Account Components/ToReceive';
 import ToReview from '../../components/Account Components/ToReview';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import axios from 'axios';
-import baseURL from '../../assets/common/baseurl';
+import { fetchMyOrders } from '../../redux/actions/orderActions';
+import { checkConnection } from '../../services/api';
 
 const MyOrdersScreen = ({ navigation }) => {
   const context = useContext(AuthGlobal);
+  const dispatch = useDispatch();
   const [activeTab, setActiveTab] = useState('history');
-  const [loading, setLoading] = useState(false);
-  const [orders, setOrders] = useState([]);
+  const [retrying, setRetrying] = useState(false);
+  const { orders, loading, error } = useSelector(state => state.orders);
 
+  // Load orders when screen is focused
   useEffect(() => {
-    // Fetch user orders when component mounts
-    fetchUserOrders();
-    
-    // Add a listener to refresh orders when the screen is focused
     const unsubscribe = navigation.addListener('focus', () => {
       fetchUserOrders();
     });
     
-    // Clean up the listener when component unmounts
     return unsubscribe;
   }, [navigation]);
 
   const fetchUserOrders = async () => {
     try {
-      setLoading(true);
-  
-      // Get auth token from AsyncStorage
-      const token = await AsyncStorage.getItem('jwt');
-  
-      if (!token) {
-        console.log('No authentication token found');
-        setOrders([]);
-        Alert.alert('Error', 'You are not logged in. Please log in to view your orders.');
-        navigation.navigate('Login'); // Redirect to login if no token
+      // Check connection first
+      const isConnected = await checkConnection();
+      if (!isConnected) {
+        Alert.alert(
+          'Connection Error',
+          'Unable to connect to the server. Please check your internet connection.',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { 
+              text: 'Retry',
+              onPress: () => {
+                setRetrying(true);
+                fetchUserOrders().finally(() => setRetrying(false));
+              }
+            }
+          ]
+        );
         return;
       }
-  
-      // Create request configuration with authorization header
-      const config = {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      };
-  
-      console.log('Fetching orders with token:', token.substring(0, 10) + '...');
-  
-      // Make the API call to fetch user orders
-      const response = await axios.get(`${baseURL}orders/my-orders`, config);
-  
-      if (response.status === 200) {
-        // Get raw orders data from the response
-        const ordersData = response.data.orders;
-        console.log('Orders fetched successfully:', ordersData.length);
-  
-        // Set the orders directly without transforming, to preserve the original structure
-        // which will be used by components like ToReview
-        setOrders(ordersData);
-      } else {
-        Alert.alert('Error', 'Failed to fetch orders. Please try again.');
-      }
+
+      await dispatch(fetchMyOrders());
     } catch (error) {
-      console.error('Error fetching orders:', error.response?.data || error.message);
-  
+      console.error('Error fetching orders:', error);
       if (error.response?.status === 401) {
-        Alert.alert('Session Expired', 'Please log in again to view your orders.');
-        navigation.navigate('Login'); // Redirect to login if session expired
+        Alert.alert(
+          'Session Expired',
+          'Please log in again to view your orders.',
+          [
+            { 
+              text: 'Login',
+              onPress: () => navigation.navigate('Login')
+            }
+          ]
+        );
       } else {
-        Alert.alert('Error', 'Failed to fetch your orders. Please try again later.');
+        Alert.alert(
+          'Error',
+          error.message || 'Failed to fetch your orders. Please try again later.',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { 
+              text: 'Retry',
+              onPress: () => {
+                setRetrying(true);
+                fetchUserOrders().finally(() => setRetrying(false));
+              }
+            }
+          ]
+        );
       }
-  
-      setOrders([]);
-    } finally {
-      setLoading(false);
     }
   };
 
+  // Make sure we have the user ID for filtering
+  const userId = context?.stateUser?.user?.userId || 
+                context?.stateUser?.user?.id || 
+                context?.stateUser?.user?._id;
+
   const renderTabContent = () => {
-    if (loading) {
+    if (loading || retrying) {
       return (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={COLORS.primary} />
+          <Text style={styles.loadingText}>
+            {retrying ? 'Retrying...' : 'Loading orders...'}
+          </Text>
         </View>
       );
     }
 
-    // Make sure we have the user ID for filtering
-    // Try multiple possible user ID formats
-    const userIdFromContext = context?.stateUser?.user?.userId || '';
-    const userIdAlt = context?.stateUser?.user?.id || '';
-    const user_id = context?.stateUser?.user?._id || '';
-    
-    // Log all possible user ID formats for debugging
-    console.log('MyOrdersScreen - User ID formats:');
-    console.log('  userId:', userIdFromContext);
-    console.log('  id:', userIdAlt);
-    console.log('  _id:', user_id);
-    console.log('  user object:', context?.stateUser?.user);
-    
-    // Use the best available user ID
-    const userId = userIdAlt || userIdFromContext || user_id;
+    if (error) {
+      return (
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>{error}</Text>
+          <TouchableOpacity 
+            onPress={() => {
+              setRetrying(true);
+              fetchUserOrders().finally(() => setRetrying(false));
+            }} 
+            style={styles.retryButton}
+          >
+            <Text style={styles.retryText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
 
     switch (activeTab) {
       case 'history':
         return <OrderHistory orders={orders} navigation={navigation} />;
       case 'toReceive':
-        // Filter orders that are not delivered yet (Pending or Shipped)
-        // Match the exact case from the order model enum
         const pendingOrders = orders.filter(order => 
           order.status === 'Pending' || order.status === 'Shipped'
         );
         return <ToReceive orders={pendingOrders} navigation={navigation} />;
       case 'toReview':
-        // Filter delivered orders for review
-        // Match the exact case from the order model enum
         return <ToReview 
           orders={orders.filter(order => order.status === 'Delivered')} 
           navigation={navigation} 
@@ -173,7 +176,6 @@ const MyOrdersScreen = ({ navigation }) => {
         </TouchableOpacity>
       </View>
       
-      {/* Replace ScrollView with View */}
       <View style={styles.contentContainer}>
         {renderTabContent()}
       </View>
@@ -262,6 +264,48 @@ const styles = StyleSheet.create({
         elevation: 3,
       },
     }),
+  },
+  loadingText: {
+    marginTop: SIZES.small,
+    fontSize: SIZES.medium,
+    color: COLORS.onBackground,
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    margin: SIZES.small,
+    padding: SIZES.medium,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
+  },
+  errorText: {
+    color: COLORS.error,
+    fontSize: SIZES.medium,
+    textAlign: 'center',
+    marginBottom: SIZES.small,
+  },
+  retryButton: {
+    backgroundColor: COLORS.primary,
+    paddingVertical: SIZES.small,
+    paddingHorizontal: SIZES.medium,
+    borderRadius: 8,
+  },
+  retryText: {
+    color: '#fff',
+    fontSize: SIZES.medium,
+    textAlign: 'center',
   },
 });
 

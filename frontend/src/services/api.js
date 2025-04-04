@@ -14,56 +14,76 @@ const api = axios.create({
   timeout: 15000, // 15 second timeout
 });
 
-// Add a request interceptor to include the auth token in all requests
+// Add a request interceptor
 api.interceptors.request.use(
   async (config) => {
-    console.log(`Making ${config.method?.toUpperCase()} request to: ${config.baseURL}${config.url}`);
-    
-    const token = await AsyncStorage.getItem('jwt');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-      console.log('Including authentication token');
+    try {
+      console.log(`[API] ${config.method?.toUpperCase()} request to: ${config.baseURL}${config.url}`);
+      
+      const token = await AsyncStorage.getItem('jwt');
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+      }
+
+      // Add timestamp to prevent caching
+      config.params = {
+        ...config.params,
+        _t: Date.now()
+      };
+
+      return config;
+    } catch (error) {
+      console.error('[API] Request interceptor error:', error);
+      return Promise.reject(error);
     }
-    return config;
   },
   (error) => {
-    console.error('Request error:', error);
+    console.error('[API] Request error:', error);
     return Promise.reject(error);
   }
 );
 
-// Add a response interceptor to handle common responses
+// Add a response interceptor
 api.interceptors.response.use(
   (response) => {
-    console.log('Response received:', response.status);
+    console.log(`[API] Response from ${response.config.url}:`, response.status);
     return response;
   },
-  (error) => {
+  async (error) => {
     // Enhanced error logging
     if (error.response) {
-      // Server responded with a status code outside the 2xx range
-      console.error('Response error:', error.response.status, error.response.data);
+      // Server responded with error status
+      console.error('[API] Response error:', {
+        status: error.response.status,
+        data: error.response.data,
+        url: error.config?.url
+      });
+
+      // Handle 401 Unauthorized
+      if (error.response.status === 401) {
+        await AsyncStorage.removeItem('jwt');
+        // The navigation to login screen will be handled by the auth context
+      }
     } else if (error.request) {
-      // Request was made but no response was received
-      console.error('Network error - no response:', error.request);
-      console.error('Target URL was:', error.config?.url);
-      console.error('Network error details:', error.message);
+      // Request was made but no response received
+      console.error('[API] Network error:', {
+        message: error.message,
+        url: error.config?.url,
+        code: error.code
+      });
+
+      // Add more descriptive error message for network issues
+      error.message = 'Unable to connect to the server. Please check your internet connection and try again.';
     } else {
-      // Something happened in setting up the request that triggered an error
-      console.error('Request setup error:', error.message);
+      // Error in request setup
+      console.error('[API] Setup error:', error.message);
     }
     
-    // Handle 401 Unauthorized errors
-    if (error.response && error.response.status === 401) {
-      // Clear stored credentials
-      AsyncStorage.removeItem('jwt');
-      // You might want to add navigation to login screen here
-    }
     return Promise.reject(error);
   }
 );
 
-// Book API endpoints - make sure these match your backend routes exactly
+// Book API endpoints
 const API_URL = {
   // Book endpoints
   GET_ALL_BOOKS: '/books',
@@ -73,38 +93,42 @@ const API_URL = {
   DELETE_BOOK: (id) => `/books/${id}`,
   UPLOAD_COVER: '/books/upload-cover',
   
-  // Search endpoints
-  SEARCH_BOOKS: (query) => `/books/search?${query}`,
+  // Order endpoints
+  GET_ALL_ORDERS: '/orders/all',
+  GET_MY_ORDERS: '/orders/my-orders',
+  PLACE_ORDER: '/orders/place',
+  UPDATE_ORDER_STATUS: (id) => `/orders/update-status/${id}`,
+  GET_ORDER_DETAILS: (id) => `/orders/${id}`,
 };
 
 // Authentication related API calls
 export const authAPI = {
-  // Fixed path construction for URLs
   login: (email, password) => api.post('/users/login', { email, password }),
   register: (userData) => api.post('/users/register', userData),
   googleAuth: (token) => api.post('/users/google-auth', { token }),
 };
 
-// Helper function to check connectivity
-export const checkConnection = async () => {
-  try {
-    const response = await api.get('/ping', { timeout: 5000 }); // shorter timeout for ping
-    return response.status === 200;
-  } catch (error) {
-    console.error('Connection check failed:', error.message);
-    return false;
+// Helper function to check connectivity with retries
+export const checkConnection = async (retries = 3) => {
+  for (let i = 0; i < retries; i++) {
+    try {
+      console.log(`[API] Connection check attempt ${i + 1} of ${retries}`);
+      const response = await api.get('/ping', { 
+        timeout: 5000,
+        headers: {
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache'
+        }
+      });
+      return response.status === 200;
+    } catch (error) {
+      console.error(`[API] Connection check attempt ${i + 1} failed:`, error.message);
+      if (i === retries - 1) return false;
+      // Wait before retrying (exponential backoff)
+      await new Promise(resolve => setTimeout(resolve, Math.pow(2, i) * 1000));
+    }
   }
-};
-
-// Data fetching helper function for use with search functionality
-export const fetchData = async (url, options = {}) => {
-  try {
-    const response = await api.get(url, options);
-    return response.data;
-  } catch (error) {
-    console.error(`Error fetching data from ${url}:`, error);
-    throw error;
-  }
+  return false;
 };
 
 export { API_URL, api };
