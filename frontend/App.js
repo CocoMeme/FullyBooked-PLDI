@@ -9,15 +9,17 @@ import AppNavigator from './src/navigation/AppNavigator';
 import SplashScreen from './src/components/SplashScreen';
 import Auth from './src/context/store/Auth';
 import Toast from 'react-native-toast-message';
+import { initDatabase } from './src/services/database'; // Import initDatabase
 
 export default function App() {
   const [isLoading, setIsLoading] = useState(true);
   const [fontsLoaded, setFontsLoaded] = useState(false);
-  
-  // Load custom fonts
+
+  // Load custom fonts and initialize the database
   useEffect(() => {
-    async function loadFonts() {
+    async function initializeApp() {
       try {
+        // Load fonts
         await Font.loadAsync({
           'Poppins-Light': require('./assets/fonts/Poppins-Light.ttf'),
           'Poppins-Regular': require('./assets/fonts/Poppins-Regular.ttf'),
@@ -26,16 +28,19 @@ export default function App() {
           'Poppins-Bold': require('./assets/fonts/Poppins-Bold.ttf'),
         });
         setFontsLoaded(true);
+
+        // Initialize the database
+        await initDatabase();
+        console.log('Database initialized successfully');
       } catch (error) {
-        console.error('Error loading fonts:', error);
-        // Fallback to system fonts if loading fails
-        setFontsLoaded(true);
+        console.error('Error initializing app:', error);
+        setFontsLoaded(true); // Fallback to continue app loading
       }
     }
-    
-    loadFonts();
+
+    initializeApp();
   }, []);
-  
+
   const handleSplashComplete = () => {
     if (fontsLoaded) {
       setIsLoading(false);

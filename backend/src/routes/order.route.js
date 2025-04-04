@@ -7,7 +7,7 @@ const router = express.Router();
 // Customer routes
 router.post('/place', verifyCustomer, placeOrder);
 router.get('/my-orders', verifyCustomer, getMyOrders); 
-router.get('/:orderId', verifyCustomer, getOrderDetails);
+router.get('my/:orderId', verifyCustomer, getOrderDetails);
 
 // Admin routes
 router.get('/all', verifyAdmin, getAllOrders);

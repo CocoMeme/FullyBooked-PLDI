@@ -43,13 +43,20 @@ exports.placeOrder = async (req, res) => {
 
 exports.getAllOrders = async (req, res) => {
   try {
+    console.log('User role:', req.user.role); // Debug log
+
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Access denied. Admins only.' });
+    }
+
     const orders = await Order.find()
       .populate('user', 'name email')
       .populate('items.book', 'title price');
-    res.status(200).json({ message: 'Orders fetched successfully.', orders });
+
+    res.status(200).json({ orders });
   } catch (error) {
     console.error('Error fetching orders:', error);
-    res.status(500).json({ message: 'Failed to fetch orders.' });
+    res.status(500).json({ error: error.message });
   }
 };
 

@@ -28,28 +28,36 @@ const OrderManagement = ({ navigation }) => {
   const fetchOrders = async () => {
     try {
       setLoading(true);
-      
+  
       // Get the JWT token from AsyncStorage
       const token = await AsyncStorage.getItem('jwt');
-      
+  
       if (!token) {
         Alert.alert('Authentication Error', 'You need to be logged in to access this feature');
         setLoading(false);
         return;
       }
-      
+  
+      // Fetch orders with customer details
       const response = await axios.get(`${API_URL}orders/all`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Cache-Control': 'no-cache', // Prevent caching
         },
       });
-      
-      setOrders(response.data.orders || []); // Ensure orders is always an array
-      console.log('Orders fetched successfully:', response.data.orders?.length || 0, 'orders');
+  
+      // Ensure orders is always an array and include customer details
+      const fetchedOrders = response.data.orders.map((order) => ({
+        ...order,
+        customerName: order.user?.name || 'Unknown', // Assuming `user` contains customer details
+        customerEmail: order.user?.email || 'N/A',
+      }));
+  
+      setOrders(fetchedOrders);
+      console.log('Orders fetched successfully:', fetchedOrders.length, 'orders');
     } catch (error) {
       console.error('Error fetching orders:', error);
-      
+  
       // More specific error message based on status code
       if (error.response?.status === 401) {
         Alert.alert('Authentication Error', 'You are not authorized to access this data. Please log in again.');
@@ -131,7 +139,7 @@ const OrderManagement = ({ navigation }) => {
       <View style={styles.orderDetails}>
         <View style={styles.detailRow}>
           <Text style={styles.detailLabel}>Customer:</Text>
-          <Text style={styles.detailValue}>{item.customerName || 'Unknown'}</Text>
+          <Text style={styles.detailValue}>{item.customerUsername || 'Unknown'}</Text>
         </View>
         <View style={styles.detailRow}>
           <Text style={styles.detailLabel}>Email:</Text>
