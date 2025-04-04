@@ -6,7 +6,8 @@ import {
   SafeAreaView, 
   TouchableOpacity,
   ActivityIndicator,
-  Alert
+  Alert,
+  Platform
 } from 'react-native';
 import { COLORS, FONTS, SIZES } from '../../constants/theme';
 import Header from '../../components/Header';
@@ -180,18 +181,32 @@ const styles = StyleSheet.create({
   tabContainer: {
     flexDirection: 'row',
     backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
+    borderRadius: 8,
+    margin: SIZES.small,
+    padding: SIZES.small,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
   },
   tabButton: {
     flex: 1,
     paddingVertical: SIZES.medium,
     alignItems: 'center',
     justifyContent: 'center',
+    borderRadius: 8,
+    marginHorizontal: 4,
+    backgroundColor: COLORS.lightPrimary,
   },
   activeTabButton: {
-    borderBottomWidth: 2,
-    borderBottomColor: COLORS.primary,
+    backgroundColor: COLORS.primary,
   },
   tabText: {
     ...FONTS.medium,
@@ -199,17 +214,46 @@ const styles = StyleSheet.create({
     color: COLORS.onBackground,
   },
   activeTabText: {
-    color: COLORS.primary,
+    color: '#fff',
+    fontWeight: 'bold',
   },
   contentContainer: {
     flexGrow: 1,
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    margin: SIZES.small,
     padding: SIZES.medium,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: SIZES.xxxLarge,
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    margin: SIZES.small,
+    padding: SIZES.medium,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
   },
 });
 

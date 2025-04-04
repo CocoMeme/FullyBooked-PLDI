@@ -13,10 +13,10 @@
 
 ## Save Cart Contents: 12pts
 - save cart contents on async storage or secure storage before checkout. get items when app is opened. delete contents after checkout. 12pts
-- save cart contents on SQLite before checkout. get items when app is opened. delete contents after checkout. 20
+done - save cart contents on SQLite before checkout. get items when app is opened. delete contents after checkout. 20
 
 ## Term Test Transaction: 35pts
-- completed transaction. 10pts
+done - completed transaction. 10pts
 - update status of transaction. 5pts
 - send a push notification after the update. 10pts
 - click on the notification to view the order details 10pts

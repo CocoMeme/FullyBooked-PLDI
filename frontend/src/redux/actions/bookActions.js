@@ -17,7 +17,7 @@ export const fetchBooks = (filters = {}) => async (dispatch) => {
         .join('&');
     }
 
-    const response = await api.get(`${API_URL.GET_ALL_BOOKS}${queryParams}`);
+    const response = await api.get(`books${queryParams}`); // Fix double slashes
     dispatch({
       type: types.FETCH_BOOKS_SUCCESS,
       payload: response.data.books,
@@ -26,6 +26,35 @@ export const fetchBooks = (filters = {}) => async (dispatch) => {
     dispatch({
       type: types.FETCH_BOOKS_FAILURE,
       payload: error.response?.data?.message || 'Failed to fetch books',
+    });
+  }
+};
+
+export const searchBooks = (query, filters = {}) => async (dispatch) => {
+  try {
+    dispatch({ type: types.FETCH_BOOKS_REQUEST });
+
+    // Build query string with main search query and additional filters
+    let queryParams = new URLSearchParams();
+
+    if (query.trim()) {
+      queryParams.append('query', query);
+    }
+
+    // Add optional filters
+    if (filters.category) queryParams.append('category', filters.category);
+    if (filters.sort) queryParams.append('sort', filters.sort);
+
+    const response = await api.get(`/api/books/search?${queryParams.toString()}`); // Fix double slashes
+
+    dispatch({ 
+      type: types.FETCH_BOOKS_SUCCESS, 
+      payload: response.data.books 
+    });
+  } catch (error) {
+    dispatch({
+      type: types.FETCH_BOOKS_FAILURE,
+      payload: error.response?.data?.message || 'Failed to search books'
     });
   }
 };

@@ -250,6 +250,99 @@ const getBookById = async (req, res) => {
   }
 };
 
+// Search books with advanced filtering
+const searchBooks = async (req, res) => {
+  try {
+    const { query, category, author, price, sort = 'relevance' } = req.query;
+    
+    // Build search filters
+    let filter = {};
+    
+    // Main search query - search by title, author, category, description
+    if (query) {
+      filter.$or = [
+        { title: { $regex: query, $options: 'i' } },
+        { author: { $regex: query, $options: 'i' } },
+        { category: { $regex: query, $options: 'i' } },
+        { description: { $regex: query, $options: 'i' } },
+        { isbn: { $regex: query, $options: 'i' } }
+      ];
+    }
+    
+    // Apply additional filters if provided
+    if (category) {
+      filter.category = category;
+    }
+    
+    if (author) {
+      filter.author = { $regex: author, $options: 'i' };
+    }
+    
+    if (price) {
+      const [min, max] = price.split('-').map(Number);
+      filter.price = {};
+      if (min) filter.price.$gte = min;
+      if (max) filter.price.$lte = max;
+    }
+    
+    // Determine sort order
+    let sortOptions = {};
+    switch (sort) {
+      case 'price_asc':
+        sortOptions = { price: 1 };
+        break;
+      case 'price_desc':
+        sortOptions = { price: -1 };
+        break;
+      case 'newest':
+        sortOptions = { createdAt: -1 };
+        break;
+      case 'relevance':
+      default:
+        // For relevance sorting, we'll stick with default MongoDB scoring
+        if (query) {
+          // If there's a search query, sort by text score
+          sortOptions = { score: { $meta: "textScore" } };
+        } else {
+          // Otherwise, sort by newest
+          sortOptions = { createdAt: -1 };
+        }
+    }
+
+    // Execute search query
+    let books;
+    if (query && sortOptions.score) {
+      // If using text score for sorting
+      books = await Book.find(filter)
+                       .select({ score: { $meta: "textScore" } })
+                       .sort(sortOptions);
+    } else {
+      // Normal sorting
+      books = await Book.find(filter).sort(sortOptions);
+    }
+    
+    res.status(200).send({
+      success: true,
+      count: books.length,
+      books: books,
+      filters: {
+        query,
+        category,
+        author,
+        price,
+        sort
+      }
+    });
+  } catch (error) {
+    console.error("Error: Searching Books", error);
+    res.status(500).send({ 
+      success: false,
+      message: "Failed to search books!", 
+      error: error.message 
+    });
+  }
+};
+
 // Delete a book
 const deleteBook = async (req, res) => {
   try {
@@ -294,5 +387,6 @@ module.exports = {
   updateBook,
   getAllBooks,
   getBookById,
+  searchBooks,
   deleteBook,
 };

@@ -4,6 +4,7 @@ const {
   getAllBooks, 
   getBookById, 
   updateBook, 
+  searchBooks,
   deleteBook 
 } = require('../controllers/book.controller');
 const verifyAdminToken = require('../middleware/verifyAdminToken');
@@ -17,6 +18,8 @@ router.post("/create-book", verifyAdminToken, upload.array('files', 5), createBo
 
 // Route to get all books
 router.get("/", getAllBooks);
+
+route.get("/search", searchBooks);
 
 // Route to get a single book by its ID
 router.get("/:id", getBookById);

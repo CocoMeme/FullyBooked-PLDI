@@ -9,19 +9,26 @@ import {
   SafeAreaView,
   ActivityIndicator,
   Alert,
+  Modal,
+  ScrollView,
 } from 'react-native';
 import { COLORS, FONTS, SIZES } from '../constants/theme';
 import Button from '../components/Button';
 import Header from '../components/Header';
 import { useDispatch } from 'react-redux';
-import { clearCart, removeFromCart, updateCartItemQuantityAction } from '../redux/actions/cartActions';
-import { getCartItems,updateCartItemQuantity } from '../services/database';
-import { API_URL } from '../services/api';
+import axios from 'axios';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { clearCart, removeFromCart } from '../redux/actions/cartActions';
+import { getCartItems, updateCartItemQuantity } from '../services/database'; // SQLite functions
+import API_URL from '../services/api';
+import { FontAwesome, MaterialIcons } from '@expo/vector-icons';
 
 const CartScreen = ({ navigation }) => {
   const [cartItems, setCartItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [totalAmount, setTotalAmount] = useState(0);
+  const [paymentMethod, setPaymentMethod] = useState('COD'); // Default payment method
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
   const dispatch = useDispatch();
 
   // Load cart items when screen is focused
@@ -50,7 +57,7 @@ const CartScreen = ({ navigation }) => {
   const loadCartItems = async () => {
     try {
       setLoading(true);
-      const items = await getCartItems(); // Fetch items from the database
+      const items = await getCartItems(); // Fetch items from SQLite database
       console.log('Loaded cart items:', JSON.stringify(items, null, 2)); // Debug log
       setCartItems(items); // Update state with fetched items
     } catch (error) {
@@ -65,27 +72,22 @@ const CartScreen = ({ navigation }) => {
   const updateQuantity = async (itemId, action) => {
     try {
       console.log('Updating quantity for item ID:', itemId, 'Action:', action);
-  
-      // Find the item in the cart
+
       const item = cartItems.find((item) => item.product_id === itemId);
       if (!item) {
         console.error(`Item with product_id: ${itemId} not found in cart`);
         throw new Error(`Item with product_id: ${itemId} not found in cart`);
       }
-  
-      // Calculate the new quantity
+
       const newQuantity = action === 'increase' ? item.quantity + 1 : item.quantity - 1;
-  
-      // Prevent quantity from going below 1
+
       if (newQuantity < 1) {
         Alert.alert('Error', 'Quantity cannot be less than 1.');
         return;
       }
-  
-      // Update the quantity in the database
-      await updateCartItemQuantity(itemId, newQuantity);
-  
-      // Update the specific item in the cart state
+
+      await updateCartItemQuantity(itemId, newQuantity); // Update quantity in SQLite database
+
       setCartItems((prevItems) =>
         prevItems.map((cartItem) =>
           cartItem.product_id === itemId
@@ -93,14 +95,14 @@ const CartScreen = ({ navigation }) => {
             : cartItem
         )
       );
-  
+
       console.log(`Quantity updated for item ID: ${itemId} to ${newQuantity}`);
     } catch (error) {
       console.error('Error updating quantity:', error);
       Alert.alert('Error', error.message || 'Failed to update quantity');
     }
   };
-  
+
   // Remove an item from cart
   const removeItem = async (itemId) => {
     try {
@@ -133,51 +135,52 @@ const CartScreen = ({ navigation }) => {
         return;
       }
   
-      // Prepare order details
       const orderDetails = {
         products: cartItems.map((item) => ({
           productId: item.product_id,
           quantity: item.quantity,
           price: item.product_price,
         })),
-        paymentMethod: 'COD', // Example payment method
+        paymentMethod: paymentMethod, // Use selected payment method
       };
   
       console.log('Placing order:', orderDetails);
   
-        // Retrieve the token from AsyncStorage
-    const token = await AsyncStorage.getItem('authToken');
-    if (!token) {
-      Alert.alert('Error', 'User not authenticated. Please log in.');
-      return;
-    }
-
-      // Send order details to the backend
-      const response = await fetch(`${API_URL}orders/place`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`, 
-        },
-        body: JSON.stringify(orderDetails),
-      });
+      // Debug log for the full API URL
+      console.log('Full API URL for placing order:', `${API_URL}orders/place`);
   
-      const result = await response.json();
+      const token = await AsyncStorage.getItem('jwt');
+      if (!token) {
+        Alert.alert('Error', 'User not authenticated. Please log in.');
+        navigation.navigate('Login');
+        return;
+      }
   
-      if (response.ok) {
-        // Clear the cart after successful order placement
+      // Use axios.post to send the request
+      const response = await axios.post(
+        `${API_URL}orders/place`,
+        orderDetails,
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+  
+      if (response.status === 200 || response.status === 201) {
         dispatch(clearCart());
         setCartItems([]);
         setTotalAmount(0);
   
         Alert.alert('Success', 'Your order has been placed successfully!');
       } else {
-        console.error('Error placing order:', result);
-        Alert.alert('Error', result.message || 'Failed to place the order. Please try again.');
+        console.error('Error placing order:', response.data);
+        Alert.alert('Error', response.data.message || 'Failed to place the order. Please try again.');
       }
     } catch (error) {
       console.error('Error placing order:', error);
-      Alert.alert('Error', 'Failed to place the order. Please try again.');
+      Alert.alert('Error', error.response?.data?.message || 'Failed to place the order. Please try again.');
     }
   };
 
@@ -266,12 +269,55 @@ const CartScreen = ({ navigation }) => {
               <Text style={styles.totalAmount}>₱{totalAmount.toFixed(2)}</Text>
             </View>
             
+            <TouchableOpacity 
+              style={styles.paymentMethodSelector}
+              onPress={() => setShowPaymentModal(true)}
+            >
+              <Text style={styles.paymentMethodLabel}>Payment Method:</Text>
+              <Text style={styles.paymentMethodText}>
+                {paymentMethod === 'COD' ? 'Cash On Delivery' : paymentMethod}
+              </Text>
+            </TouchableOpacity>
+            
             <Button 
               title="Proceed to Checkout" 
-              onPress={placeOrder} // Call the placeOrder function
+              onPress={placeOrder}
               style={styles.checkoutButton}
             />
           </View>
+          
+          <Modal
+            visible={showPaymentModal}
+            transparent={true}
+            animationType="slide"
+            onRequestClose={() => setShowPaymentModal(false)}
+          >
+            <View style={styles.modalOverlay}>
+              <View style={styles.modalContent}>
+                <Text style={styles.modalTitle}>Select Payment Method</Text>
+                <ScrollView>
+                  <TouchableOpacity 
+                    style={styles.paymentOption}
+                    onPress={() => {
+                      setPaymentMethod('COD');
+                      setShowPaymentModal(false);
+                    }}
+                  >
+                    <Text>Cash On Delivery</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    style={styles.paymentOption}
+                    onPress={() => {
+                      setPaymentMethod('Card');
+                      setShowPaymentModal(false);
+                    }}
+                  >
+                    <Text>Credit/Debit Card</Text>
+                  </TouchableOpacity>
+                </ScrollView>
+              </View>
+            </View>
+          </Modal>
         </>
       )}
     </SafeAreaView>
@@ -292,124 +338,105 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: SIZES.large,
   },
   emptyCartText: {
-    ...FONTS.medium,
-    fontSize: SIZES.large,
-    color: COLORS.onBackground,
-    marginBottom: SIZES.large,
-  },
-  browseButton: {
-    width: 200,
+    fontSize: 18,
+    color: COLORS.gray,
   },
   listContainer: {
-    padding: SIZES.small,
+    padding: 10,
   },
   cartItem: {
     flexDirection: 'row',
+    marginBottom: 10,
+    padding: 10,
     backgroundColor: '#fff',
-    borderRadius: SIZES.base,
-    marginBottom: SIZES.medium,
-    padding: SIZES.medium,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    position: 'relative',
-    minHeight: 120,
+    borderRadius: 5,
   },
   bookCover: {
-    width: 70,
-    height: 100,
-    borderRadius: SIZES.base,
+    width: 50,
+    height: 70,
   },
   itemDetails: {
     flex: 1,
-    marginLeft: SIZES.medium,
-    justifyContent: 'flex-start',
+    marginLeft: 10,
   },
   bookTitle: {
-    ...FONTS.semiBold,
-    fontSize: SIZES.medium,
-    marginTop: 5,
+    fontSize: 16,
+    fontWeight: 'bold',
   },
   price: {
-    ...FONTS.bold,
-    fontSize: SIZES.medium,
+    fontSize: 14,
     color: COLORS.primary,
   },
   quantityControlsContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    position: 'absolute',
-    bottom: 10,
-    right: 10,
   },
   quantityButton: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    backgroundColor: COLORS.primary,
-    alignItems: 'center',
+    width: 30,
+    height: 30,
     justifyContent: 'center',
-    margin: 3,
-  },
-  disabledButton: {
-    backgroundColor: COLORS.lightGray,
-    opacity: 0.7,
+    alignItems: 'center',
+    backgroundColor: COLORS.primary,
+    borderRadius: 15,
   },
   quantityText: {
-    ...FONTS.bold,
-    fontSize: SIZES.medium,
-    marginHorizontal: 5,
-  },
-  removeButton: {
-    position: 'absolute',
-    top: 10,
-    right: 10,
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    backgroundColor: COLORS.error,
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 10,
-  },
-  removeButtonText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: 'bold',
+    marginHorizontal: 10,
+    fontSize: 16,
   },
   checkoutContainer: {
+    padding: 10,
     backgroundColor: '#fff',
-    borderTopWidth: 1,
-    borderTopColor: '#e0e0e0',
-    padding: SIZES.medium,
   },
   totalContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: SIZES.medium,
+    marginBottom: 10,
   },
   totalLabel: {
-    ...FONTS.semiBold,
-    fontSize: SIZES.large,
+    fontSize: 16,
+    fontWeight: 'bold',
   },
   totalAmount: {
-    ...FONTS.extraBold,
-    fontSize: SIZES.large,
+    fontSize: 16,
     color: COLORS.primary,
   },
-  checkoutButton: {
-    marginTop: SIZES.small,
+  paymentMethodSelector: {
+    marginBottom: 10,
   },
-  clearButtonText: {
-    ...FONTS.medium,
-    color: COLORS.error,
-    fontSize: SIZES.small,
+  paymentMethodLabel: {
+    fontSize: 14,
+    color: COLORS.gray,
+  },
+  paymentMethodText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  checkoutButton: {
+    marginTop: 10,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    width: '80%',
+    backgroundColor: '#fff',
+    padding: 20,
+    borderRadius: 10,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 10,
+  },
+  paymentOption: {
+    padding: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#ccc',
   },
 });
 
