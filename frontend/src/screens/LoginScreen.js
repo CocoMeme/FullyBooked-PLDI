@@ -1,4 +1,5 @@
 import React, { useState, useContext, useEffect } from 'react';
+import 'expo-dev-client';
 import { 
   View, 
   Text, 
