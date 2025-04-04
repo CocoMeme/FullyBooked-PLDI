@@ -9,7 +9,8 @@ import {
   Platform,
   Modal,
   Button,
-  ActivityIndicator
+  ActivityIndicator,
+  Image
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import axios from 'axios';
@@ -68,7 +69,7 @@ const UserManagement = () => {
               const token = await AsyncStorage.getItem('jwt');
               if (!token) throw new Error('JWT token not found');
 
-              await axios.delete(`${API_URL}/users/${userId}`, {
+              await axios.delete(`${API_URL}users/${userId}`, {
                 headers: { Authorization: `Bearer ${token}` },
               });
 
@@ -92,7 +93,7 @@ const UserManagement = () => {
       if (!token) throw new Error('JWT token not found');
 
       const response = await axios.put(
-        `${API_URL}/users/update/${selectedUser._id}`,
+        `${API_URL}users/update/${selectedUser._id}`,
         { role: updatedRole },
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -115,14 +116,27 @@ const UserManagement = () => {
 
   const renderUserItem = ({ item }) => (
     <View style={styles.userItem}>
+      <Image
+        source={{ 
+          uri: item.avatar || "https://res.cloudinary.com/do8azqoyg/image/upload/v1743471290/Fully%20Booked/cryphitleu7qbgugiov8.png"
+        }}
+        style={styles.avatar}
+      />
       <View style={styles.userInfo}>
         <Text style={styles.username}>{item.username}</Text>
         <Text style={styles.email}>{item.email}</Text>
         <View style={styles.metaInfo}>
-          <View style={styles.roleContainer}>
+          <View style={[
+            styles.roleContainer,
+            item.role === 'admin' ? styles.adminRoleContainer : 
+            item.role === 'courier' ? styles.courierRoleContainer : 
+            styles.customerRoleContainer
+          ]}>
             <Text style={[
-              styles.roleText, 
-              item.role === 'admin' ? styles.adminRole : styles.customerRole
+              styles.roleText,
+              item.role === 'admin' ? styles.adminRole : 
+              item.role === 'courier' ? styles.courierRole : 
+              styles.customerRole
             ]}>
               {item.role.toUpperCase()}
             </Text>
@@ -227,7 +241,7 @@ const styles = StyleSheet.create({
   userItem: {
     flexDirection: 'row',
     backgroundColor: '#fff',
-    borderRadius: 8,
+    borderRadius: 12,
     padding: SIZES.medium,
     marginBottom: SIZES.medium,
     alignItems: 'center',
@@ -242,6 +256,12 @@ const styles = StyleSheet.create({
         elevation: 3,
       },
     }),
+  },
+  avatar: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    marginRight: SIZES.medium,
   },
   userInfo: {
     flex: 1,
@@ -264,9 +284,18 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   roleContainer: {
-    borderRadius: SIZES.base / 2,
-    paddingVertical: 2,
+    borderRadius: SIZES.base,
+    paddingVertical: 4,
     paddingHorizontal: 8,
+  },
+  adminRoleContainer: {
+    backgroundColor: '#4CAF5020',
+  },
+  customerRoleContainer: {
+    backgroundColor: '#2196F320',
+  },
+  courierRoleContainer: {
+    backgroundColor: '#FF980020',
   },
   roleText: {
     ...FONTS.medium,
@@ -278,6 +307,9 @@ const styles = StyleSheet.create({
   customerRole: {
     color: '#2196F3',
   },
+  courierRole: {
+    color: '#FF9800',
+  },
   date: {
     ...FONTS.regular,
     fontSize: SIZES.small - 2,
@@ -286,6 +318,7 @@ const styles = StyleSheet.create({
   },
   actions: {
     flexDirection: 'row',
+    marginLeft: SIZES.small,
   },
   actionButton: {
     width: 36,
