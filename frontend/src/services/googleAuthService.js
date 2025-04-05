@@ -17,8 +17,8 @@ WebBrowser.maybeCompleteAuthSession();
 // Create a custom hook for Google authentication
 export const useGoogleAuth = () => {
   const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
-    clientId: '965289265275-kds4i237mg74oca9ho6s3ttdfdg14qrm.apps.googleusercontent.com',
-    redirectUri: 'fullybooked://oauth2redirect',
+    clientId: '965289265275-00crng1jcruvnq9cfk51ls30qs0tt4vt.apps.googleusercontent.com',
+    redirectUri: 'https://fullybookedrn.firebaseapp.com/__/auth/handler',
   });
 
   const signInWithGoogle = async () => {

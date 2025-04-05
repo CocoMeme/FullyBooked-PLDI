@@ -7,6 +7,7 @@ import { auth } from '../../services/firebaseConfig';
 
 export const SET_CURRENT_USER = "SET_CURRENT_USER";
 
+
 export const loginUser = (user, dispatch) => {
     console.log("Attempting login with baseURL:", baseURL);
     console.log("Login credentials:", { email: user.email });
