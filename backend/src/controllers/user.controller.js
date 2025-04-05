@@ -387,7 +387,14 @@ exports.updateUserProfile = async (req, res) => {
         // This ensures users can only update their own profiles
         const userId = req.user.id;
         
-        console.log(`User ${userId} attempting to update profile:`, req.body);
+        console.log(`User ${userId} attempting to update profile`);
+        console.log('Request body:', req.body);
+        
+        if (req.file) {
+            console.log('Avatar file received:', req.file.path);
+        } else if (req.body.avatarUrl) {
+            console.log('Using existing avatar URL:', req.body.avatarUrl);
+        }
 
         // Find the existing user
         const existingUser = await User.findById(userId);
@@ -395,22 +402,56 @@ exports.updateUserProfile = async (req, res) => {
             return res.status(404).json({ message: "User not found!" });
         }
 
+        // Parse address from JSON string if it comes as a string
+        let addressData = req.body.address;
+        if (typeof addressData === 'string') {
+            try {
+                addressData = JSON.parse(addressData);
+            } catch (error) {
+                console.error('Error parsing address JSON:', error);
+                addressData = existingUser.address; // Fallback to existing address
+            }
+        }
+        
         // Prepare updated data
         const updatedData = {
             username: req.body.username,
             email: req.body.email,
             phone: req.body.phone || '',
             address: {
-                city: req.body.address?.city || '',
-                country: req.body.address?.country || '',
-                state: req.body.address?.state || '',
-                zipcode: req.body.address?.zipcode || '',
+                city: addressData?.city || existingUser.address?.city || '',
+                country: addressData?.country || existingUser.address?.country || '',
+                state: addressData?.state || existingUser.address?.state || '',
+                zipcode: addressData?.zipcode || existingUser.address?.zipcode || '',
             }
         };
 
-        // Handle avatar if provided
-        if (req.body.avatar && req.body.avatar.startsWith('http')) {
-            updatedData.avatar = req.body.avatar;
+        // Handle avatar upload
+        if (req.file) {
+            // Use Cloudinary to upload the file that multer saved
+            try {
+                const uploadToCloudinary = require('../../utils/cloudinaryUploader');
+                const uploadResult = await uploadToCloudinary(req.file, 'Fully Booked/avatars');
+                
+                if (uploadResult.success) {
+                    console.log('Avatar uploaded to Cloudinary:', uploadResult.url);
+                    updatedData.avatar = uploadResult.url;
+                } else {
+                    console.error('Failed to upload avatar to Cloudinary:', uploadResult.error);
+                    // Keep existing avatar if upload fails
+                    updatedData.avatar = existingUser.avatar;
+                }
+            } catch (uploadError) {
+                console.error('Error uploading avatar to Cloudinary:', uploadError);
+                // Keep existing avatar if upload fails
+                updatedData.avatar = existingUser.avatar;
+            }
+        } else if (req.body.avatarUrl) {
+            // If an existing URL was provided
+            updatedData.avatar = req.body.avatarUrl;
+        } else {
+            // Keep existing avatar if none provided
+            updatedData.avatar = existingUser.avatar;
         }
 
         console.log('Updating user with data:', updatedData);

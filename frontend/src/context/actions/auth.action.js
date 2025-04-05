@@ -163,6 +163,9 @@ export const testProfileUpdate = async () => {
     try {
         console.log('Testing profile update API connectivity...');
         
+        // Get the JWT token from AsyncStorage
+        const token = await AsyncStorage.getItem("jwt");
+        
         // Build test URL using the same baseURL
         const testUrl = baseURL.endsWith('/') 
             ? `${baseURL}users/profile-test` 
@@ -174,7 +177,8 @@ export const testProfileUpdate = async () => {
             method: "GET",
             headers: {
                 'Accept': 'application/json',
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
+                'Authorization': token ? `Bearer ${token}` : '' // Include auth token if available
             }
         });
         
@@ -183,6 +187,7 @@ export const testProfileUpdate = async () => {
         if (!response.ok) {
             const errorText = await response.text();
             console.error('Test error response:', errorText);
+            // We'll continue even if test fails, since this is just a diagnostic step
             return { success: false, error: 'API test failed' };
         }
         
@@ -192,16 +197,13 @@ export const testProfileUpdate = async () => {
         return { success: true, data };
     } catch (error) {
         console.error("Test API error:", error);
+        // We'll continue even if test fails, since this is just a diagnostic step
         return { success: false, error };
     }
 };
 
 export const updateUserProfile = async (userData, dispatch) => {
     try {
-        // First test the API connectivity
-        const testResult = await testProfileUpdate();
-        console.log('API test result:', testResult);
-        
         // Get the JWT token from AsyncStorage
         const token = await AsyncStorage.getItem("jwt");
         if (!token) {
@@ -209,50 +211,62 @@ export const updateUserProfile = async (userData, dispatch) => {
         }
         
         console.log('JWT token found:', token.substring(0, 10) + '...');
-        console.log('Updating user profile with data:', userData);
         
-        // Use the new profile update endpoint
+        // Prepare FormData for multipart/form-data submission
+        const formData = new FormData();
+        
+        // Add basic profile fields
+        formData.append('username', userData.username);
+        formData.append('email', userData.email);
+        formData.append('phone', userData.phone || '');
+        
+        // Add address fields as JSON
+        const addressData = {
+            city: userData.address?.city || '',
+            country: userData.address?.country || '',
+            state: userData.address?.state || '',
+            zipcode: userData.address?.zipcode || ''
+        };
+        formData.append('address', JSON.stringify(addressData));
+        
+        // Handle avatar upload
+        if (userData.avatar) {
+            if (typeof userData.avatar === 'object' && userData.avatar.uri) {
+                // If we have a local image with URI, append it to FormData
+                console.log('Adding avatar image to FormData:', userData.avatar.uri);
+                
+                // Create an object with the expected multer properties
+                formData.append('avatar', {
+                    uri: userData.avatar.uri,
+                    name: userData.avatar.name || 'avatar.jpg',
+                    type: userData.avatar.type || 'image/jpeg'
+                });
+            } else if (typeof userData.avatar === 'string') {
+                // If avatar is just a string URL, pass it along as-is
+                if (userData.avatar.startsWith('http')) {
+                    console.log('Using existing avatar URL:', userData.avatar.substring(0, 30) + '...');
+                    formData.append('avatarUrl', userData.avatar);
+                } else {
+                    console.log('Avatar is a string but not a URL, skipping');
+                }
+            }
+        }
+        
+        // Use the profile update endpoint
         const updateUrl = baseURL.endsWith('/') 
             ? `${baseURL}users/profile/update` 
             : `${baseURL}/users/profile/update`;
         
         console.log('Making API call to:', updateUrl);
-        console.log('BaseURL:', baseURL);
-        
-        // Create a copy of userData that's safe to send to server
-        const userDataToSend = {
-            username: userData.username,
-            email: userData.email,
-            phone: userData.phone || '',
-            avatar: userData.avatar || '',
-            address: {
-                city: userData.address?.city || '',
-                country: userData.address?.country || '',
-                state: userData.address?.state || '',
-                zipcode: userData.address?.zipcode || '',
-            }
-        };
-        
-        console.log('Sending data:', JSON.stringify(userDataToSend));
-        console.log('Headers:', {
-            'Accept': 'application/json',
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token.substring(0, 10)}...`
-        });
-        
-        // If we have a new avatar that's a local URI, we should handle image upload separately
-        // For now we'll keep the old avatar if it's a URL or skip if it's a local file path
-        if (userData.avatar && !userData.avatar.startsWith('http')) {
-            console.log('Skipping local avatar upload for now');
-        }
+        console.log('Using FormData for profile update with avatar');
         
         const response = await fetch(updateUrl, {
             method: "PUT",
-            body: JSON.stringify(userDataToSend),
+            body: formData,
             headers: {
                 'Accept': 'application/json',
-                'Content-Type': 'application/json',
                 'Authorization': `Bearer ${token}`
+                // Don't set Content-Type header - fetch will set it with correct boundary for FormData
             }
         });
         
@@ -275,17 +289,22 @@ export const updateUserProfile = async (userData, dispatch) => {
         const data = await response.json();
         console.log('Profile update API response:', data);
         
-        // Update the userData in AsyncStorage
-        await AsyncStorage.setItem("userData", JSON.stringify({
+        // Create updated user data using the response from the server
+        const updatedUserData = {
             ...userData,
-            ...data.user // Replace with server data if available
-        }));
+            avatar: data.user.avatar || userData.avatar, // Use the Cloudinary URL from response
+        };
+        
+        console.log('Merged user data after update:', updatedUserData);
+        
+        // Update the userData in AsyncStorage with the server response data
+        await AsyncStorage.setItem("userData", JSON.stringify(updatedUserData));
         
         // Get the current decoded token
         const currentToken = jwtDecode(token);
         
         // Update the context with the new user data
-        dispatch(setCurrentUser(currentToken, userData));
+        dispatch(setCurrentUser(currentToken, updatedUserData));
         
         Toast.show({
             type: "success",
@@ -295,7 +314,7 @@ export const updateUserProfile = async (userData, dispatch) => {
             topOffset: 60,
         });
         
-        return { success: true };
+        return { success: true, userData: updatedUserData };
     } catch (error) {
         console.error("Error updating user profile:", error);
         

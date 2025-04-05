@@ -114,12 +114,19 @@ const AccountProfile = ({ onComplete }) => {
       });
 
       if (!result.cancelled && result.assets && result.assets.length > 0) {
-        // In a production app, you would upload this image to your server
-        // and get a URL back to store in the userData state
+        const imageUri = result.assets[0].uri;
+        
+        // Store image metadata for later FormData upload
         setUserData({
           ...userData,
-          avatar: result.assets[0].uri,
+          avatar: {
+            uri: imageUri,
+            name: 'avatar-image.jpg',
+            type: 'image/jpeg'
+          }
         });
+        
+        console.log('Image selected:', imageUri);
       }
     } catch (error) {
       console.error('Error picking image:', error);
@@ -174,6 +181,11 @@ const AccountProfile = ({ onComplete }) => {
       const result = await updateUserProfile(updatedUserData, context.dispatch);
       
       if (result.success) {
+        // Update the local state with the server response (especially for avatar URL)
+        if (result.userData) {
+          setUserData(result.userData);
+        }
+        
         // Call onComplete if provided (for modal)
         if (onComplete) {
           onComplete();
@@ -202,7 +214,7 @@ const AccountProfile = ({ onComplete }) => {
     <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
       <View style={styles.avatarSection}>
         <Image
-          source={{ uri: userData.avatar || DEFAULT_AVATAR }}
+          source={{ uri: userData.avatar?.uri || userData.avatar || DEFAULT_AVATAR }}
           style={styles.avatar}
         />
         <TouchableOpacity style={styles.changePhotoButton} onPress={pickImage}>

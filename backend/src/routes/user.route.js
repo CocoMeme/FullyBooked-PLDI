@@ -15,6 +15,7 @@ const {
 } = require('../controllers/user.controller');
 const verifyAdminToken = require('../middleware/verifyAdminToken');
 const { verifyToken } = require('../middleware/verifyToken');
+const { upload } = require('../../utils/multer.config');
 const router = express.Router();
 
 // Public routes
@@ -26,8 +27,10 @@ router.get("/test", testEndpoint);
 router.post("/admin", loginAdmin);
 
 // User-protected routes (requires authentication but not admin)
-router.put("/profile/update", verifyToken, updateUserProfile);
-router.post("/profile/update", verifyToken, updateUserProfile);
+router.get("/profile-test", verifyToken, testEndpoint); 
+// Update profile route with multer middleware for avatar upload
+router.put("/profile/update", verifyToken, upload.single('avatar'), updateUserProfile);
+router.post("/profile/update", verifyToken, upload.single('avatar'), updateUserProfile);
 
 // Admin-protected routes
 router.get("/all", verifyAdminToken, getAllUsers);
