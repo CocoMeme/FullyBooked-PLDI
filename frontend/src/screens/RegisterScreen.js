@@ -11,7 +11,7 @@ import {
   ScrollView
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useGoogleAuth } from '../services/googleAuthService';
+import { signInWithGoogle } from '../services/googleAuthService';
 import AuthGlobal from '../context/store/AuthGlobal';
 import { loginUser, setCurrentUser } from '../context/actions/auth.action';
 import { api, authAPI } from '../services/api'; // Fixed import to use named export
@@ -20,6 +20,7 @@ import { COLORS, FONTS, SIZES } from '../constants/theme';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import baseURL, { testAPIConnection } from '../assets/common/baseurl';
 import { jwtDecode } from 'jwt-decode';
+import { storeToken } from '../utils/secureStorage';
 
 const RegisterScreen = () => {
   const context = useContext(AuthGlobal);
@@ -33,9 +34,6 @@ const RegisterScreen = () => {
   const [hideConfirmPassword, setHideConfirmPassword] = useState(true);
   const navigation = useNavigation();
   
-  // Use our custom Google auth hook - now with registerWithEmailAndPassword
-  const { signInWithGoogle, registerWithEmailAndPassword } = useGoogleAuth();
-
   // Test server connection on component mount
   useEffect(() => {
     const testConnection = async () => {
@@ -106,7 +104,7 @@ const RegisterScreen = () => {
       
       // After successful registration, update context with token
       if (token) {
-        await AsyncStorage.setItem("jwt", token);
+        await storeToken(token);
         
         // IMPORTANT: Update the auth context with the decoded token
         if (decodedToken) {
@@ -134,26 +132,29 @@ const RegisterScreen = () => {
   const handleGoogleSignUp = async () => {
     try {
       setIsLoading(true);
-      const { user, token, decodedToken } = await signInWithGoogle();
-      
-      if (user && token) {
-        // Store token in AsyncStorage for Context API
-        await AsyncStorage.setItem("jwt", token);
-        
-        // IMPORTANT: Update the auth context with the decoded token
-        if (decodedToken) {
-          context.dispatch(setCurrentUser(decodedToken, {
-            email: user.email,
-            username: user.displayName || `user_${user.uid.substring(0, 8)}`
-          }));
-        }
-        
-        // The signInWithGoogle function already handles registration if user is new
-        Alert.alert('Success', 'Registration successful!');
+      const userData = await signInWithGoogle();
+
+      if (userData?.userNotFound) {
+        Alert.alert('Account Not Found', 'You need to create an account first.');
+        return;
       }
+      
+      if (!userData || !userData.token) {
+        console.error('Invalid response from Google Sign In:', userData);
+        Alert.alert('Error', 'Failed to sign in with Google. Please try again.');
+        return;
+      }
+
+      // Store token in SecureStore with AsyncStorage fallback
+      await storeToken(userData.token);
+
+      // Update the auth context with the user data
+      context.dispatch(setCurrentUser(userData));
+
+      Alert.alert('Success', 'Google sign-in successful!');
     } catch (error) {
       console.error('Google sign-up error:', error);
-      // Error already handled in signInWithGoogle function
+      Alert.alert('Error', 'Google sign-up failed. Please try again.');
     } finally {
       setIsLoading(false);
     }

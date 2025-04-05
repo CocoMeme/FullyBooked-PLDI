@@ -1,7 +1,7 @@
 import { SET_CURRENT_USER } from "../actions/auth.action"
 import isEmpty from "../../assets/common/is-empty"
 
-const initialState = {
+export const initialState = {
     isAuthenticated: false,
     user: {},
     userProfile: null,

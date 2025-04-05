@@ -10,14 +10,12 @@ const isEmulator = Constants.executionEnvironment === 'storeClient';
 
 if (Platform.OS === 'android') {
   if (isEmulator) {
-    baseURL = 'http://192.168.1.66:3000/api/';
-    // baseURL = 'http://10.0.2.2:3000/api/';
+    // Try multiple IP options for emulators
+    baseURL = 'http://10.0.2.2:3000/api/'; // Standard Android emulator IP
+    // baseURL = 'http://192.168.1.66:3000/api/';
   } else {
-    baseURL = 'http://192.168.1.66:3000/api/';
-
-    // Joey's local IP address
-    // baseURL = 'http://192.168.1.253:3000/api/'
-
+    // Physical device - use your actual machine IP
+    baseURL = 'http://192.168.1.253:3000/api/'; // Joey's local IP address
   }
 } else if (Platform.OS === 'ios') {
   if (isEmulator) {
@@ -31,12 +29,14 @@ if (Platform.OS === 'android') {
   baseURL = 'http://localhost:3000/api/';
 }
 
-console.log('API Base URL:', baseURL, {
+// Log the selected URL for debugging
+console.log('API Base URL selected:', baseURL, {
   platform: Platform.OS,
   isExpo,
   isEmulator
 });
 
+// Test function
 export const testAPIConnection = async () => {
   try {
     console.log('Testing API connection to:', baseURL);

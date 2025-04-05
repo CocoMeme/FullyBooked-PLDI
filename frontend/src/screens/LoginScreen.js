@@ -10,14 +10,15 @@ import {
   Alert
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useGoogleAuth } from '../services/googleAuthService';
 import AuthGlobal from '../context/store/AuthGlobal';
-import { loginUser } from '../context/actions/auth.action';
+import { loginUser, setCurrentUser } from '../context/actions/auth.action';
 import api from '../services/api';
 import { useNavigation } from '@react-navigation/native';
 import { COLORS, FONTS, SIZES } from '../constants/theme';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import baseURL, { testAPIConnection } from '../assets/common/baseurl';
+import { signInWithGoogle } from '../services/googleAuthService';
+import { storeToken } from '../utils/secureStorage';
 
 const LoginScreen = () => {
   const context = useContext(AuthGlobal);
@@ -29,9 +30,6 @@ const LoginScreen = () => {
   const [hidePassword, setHidePassword] = useState(true);
   const navigation = useNavigation();
   
-  // Use our custom Google auth hook
-  const { signInWithGoogle } = useGoogleAuth();
-
   // Test API connection when component mounts
   useEffect(() => {
     const checkConnection = async () => {
@@ -99,19 +97,31 @@ const LoginScreen = () => {
   const handleGoogleLogin = async () => {
     try {
       setIsLoading(true);
-      const { user, token } = await signInWithGoogle();
-      
-      if (user && token) {
-        // Store token in AsyncStorage for Context API
-        await AsyncStorage.setItem("jwt", token);
-        
-        // No navigation needed here - the AuthContext and AppNavigator 
-        // will handle the navigation automatically after token is set
-        console.log("Google login successful, authentication will be handled by context");
+      const userData = await signInWithGoogle();
+
+      if (userData?.userNotFound) {
+        Alert.alert(
+          "User Not Found",
+          "It seems you haven't registered yet. Please register to continue.",
+          [
+            { text: "OK", onPress: () => navigation.navigate('Register') }
+          ]
+        );
+        return; // Exit the function early
+      }
+
+      if (userData) {
+        // Store token in SecureStore with AsyncStorage fallback
+        await storeToken(userData.token);
+
+        // Update the auth context with the user data
+        context.dispatch(setCurrentUser(userData));
+
+        console.log("Google login successful, authentication handled by context");
       }
     } catch (error) {
       console.error('Google login error:', error);
-      // Error already handled in signInWithGoogle function
+      Alert.alert('Error', 'Google login failed. Please try again.');
     } finally {
       setIsLoading(false);
     }

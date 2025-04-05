@@ -319,36 +319,122 @@ exports.getFirebaseToken = async (req, res, next) => {
     const { email, firebaseUid } = req.body;
     
     try {
+        console.log(`[getFirebaseToken] Request received for: ${email}, ${firebaseUid}`);
+        
         if (!email || !firebaseUid) {
             return res.status(400).json({ message: "Email and Firebase UID are required" });
         }
         
-        // Find user by email and Firebase UID
-        const user = await User.findOne({ 
-            $or: [
-                { email, firebaseUid },
-                { email }
-            ]
-        });
+        // First check if a user with this firebaseUid already exists
+        let user = await User.findOne({ firebaseUid });
         
-        if (!user) {
-            return res.status(404).json({ message: "User not found. Please register first." });
+        // If found by firebaseUid but email doesn't match
+        if (user && user.email !== email) {
+            console.log(`[getFirebaseToken] Warning: Firebase UID ${firebaseUid} already linked to different email ${user.email}`);
+            // Return the existing user anyway, as this is likely the same user with a different Google account
         }
         
-        // Update firebaseUid if it doesn't match (user might have been created before Firebase auth)
-        if (user.firebaseUid !== firebaseUid) {
-            user.firebaseUid = firebaseUid;
-            await user.save();
+        // If no user with the firebaseUid, try to find by email
+        if (!user) {
+            user = await User.findOne({ email });
+            
+            // If found by email but no firebaseUid, update the user with the firebaseUid
+            if (user && !user.firebaseUid) {
+                user.firebaseUid = firebaseUid;
+                try {
+                    await user.save();
+                    console.log(`[getFirebaseToken] Updated existing user with Firebase UID: ${user.email}`);
+                } catch (saveError) {
+                    console.error("[getFirebaseToken] Error updating user with Firebase UID:", saveError);
+                    // Handle duplicate key error explicitly
+                    if (saveError.code === 11000) {
+                        console.log("[getFirebaseToken] Duplicate key error - another user already has this Firebase UID");
+                        // Find the user with the conflicting Firebase UID
+                        const conflictUser = await User.findOne({ firebaseUid });
+                        if (conflictUser) {
+                            // Use that user instead
+                            user = conflictUser;
+                            console.log(`[getFirebaseToken] Using existing user with Firebase UID: ${user.email}`);
+                        }
+                    }
+                }
+            }
+        }
+        
+        // If user still not found, create a new user
+        if (!user) {
+            console.log(`[getFirebaseToken] Creating new user for email: ${email}`);
+            
+            // Generate a username from the email (make it unique)
+            const usernameBase = email.split('@')[0];
+            const timestamp = Date.now().toString().slice(-4);
+            const username = `${usernameBase}_${timestamp}`;
+            
+            // Create a random password (not used for Firebase auth)
+            const password = Math.random().toString(36).slice(-8);
+            
+            try {
+                user = new User({
+                    email,
+                    firebaseUid,
+                    username,
+                    password,
+                    role: "customer"
+                });
+                
+                await user.save();
+                console.log(`[getFirebaseToken] New user created: ${email}`);
+            } catch (createError) {
+                // Handle duplicate key error
+                if (createError.code === 11000) {
+                    console.log("[getFirebaseToken] Duplicate key error during user creation");
+                    
+                    // Determine which field caused the conflict
+                    const errorMessage = createError.message;
+                    if (errorMessage.includes('firebaseUid')) {
+                        // If firebaseUid is duplicated, find and use that user
+                        user = await User.findOne({ firebaseUid });
+                        console.log(`[getFirebaseToken] Using existing user with Firebase UID: ${user?.email}`);
+                    } else if (errorMessage.includes('email')) {
+                        // If email is duplicated, find and use that user
+                        user = await User.findOne({ email });
+                        console.log(`[getFirebaseToken] Using existing user with email: ${user?.email}`);
+                    } else if (errorMessage.includes('username')) {
+                        // If username is duplicated, retry with a different username
+                        const retryUsername = `${usernameBase}_${Math.floor(Math.random() * 10000)}`;
+                        user = new User({
+                            email,
+                            firebaseUid,
+                            username: retryUsername,
+                            password,
+                            role: "customer"
+                        });
+                        
+                        await user.save();
+                        console.log(`[getFirebaseToken] New user created with alternate username: ${retryUsername}`);
+                    }
+                    
+                    if (!user) {
+                        throw new Error("Failed to handle duplicate key error");
+                    }
+                } else {
+                    // Rethrow if it's not a duplicate key error
+                    throw createError;
+                }
+            }
         }
         
         // Generate JWT token
         const token = jwt.sign(
-            { id: user._id, email: user.email, role: user.role, firebaseUid: user.firebaseUid },
+            { id: user._id, email: user.email, role: user.role, firebaseUid },
             JWT_SECRET,
             { expiresIn: '24h' }
         );
         
-        res.status(200).json({ 
+        console.log(`[getFirebaseToken] Token generated for user: ${user.email}`);
+        
+        res.status(200).json({
+            success: true,
             message: "Firebase authentication successful",
             token,
             user: {
@@ -362,7 +448,7 @@ exports.getFirebaseToken = async (req, res, next) => {
             }
         });
     } catch (error) {
-        console.error("Error in getFirebaseToken:", error);
+        console.error("[getFirebaseToken] Error:", error);
         next(error);
     }
 };

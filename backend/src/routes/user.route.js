@@ -23,6 +23,19 @@ router.post("/register", registerUser);
 router.post("/login", loginUser);
 router.post("/google-auth", googleAuth);
 router.post("/firebase-token", getFirebaseToken);
+// Add a test route to debug the endpoint
+router.get("/firebase-token-check", (req, res) => {
+  res.status(200).json({ 
+    message: "Firebase token route is accessible", 
+    timestamp: new Date().toISOString() 
+  });
+});
+// Add a more debug-friendly version for troubleshooting
+router.post("/firebase-token-test", (req, res) => {
+  console.log("Firebase token test route hit!");
+  console.log("Request body:", req.body);
+  res.status(200).json({ success: true, message: "Test endpoint working" });
+});
 router.get("/test", testEndpoint);
 router.post("/admin", loginAdmin);
 

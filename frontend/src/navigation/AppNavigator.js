@@ -13,6 +13,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { jwtDecode } from 'jwt-decode';
 import { setCurrentUser } from '../context/actions/auth.action';
 import { COLORS } from '../constants/theme';
+import { getToken, removeToken } from '../utils/secureStorage';
 
 const Stack = createStackNavigator();
 
@@ -22,12 +23,12 @@ const AppNavigator = () => {
   const [firebaseUser, setFirebaseUser] = useState(null);
   const [userRole, setUserRole] = useState(null);
 
-  // First priority: Check AsyncStorage for saved token and user data
+  // First priority: Check SecureStore for saved token and user data
   useEffect(() => {
     const restoreUserSession = async () => {
       try {
-        // Check for JWT token in AsyncStorage
-        const token = await AsyncStorage.getItem("jwt");
+        // Get token using utility function
+        const token = await getToken();
         const userDataString = await AsyncStorage.getItem("userData");
         
         if (token) {
@@ -40,15 +41,15 @@ const AppNavigator = () => {
             if (decoded.exp && decoded.exp > currentTime) {
               // If we have user data stored, use it
               const userData = userDataString ? JSON.parse(userDataString) : null;
-              console.log("Restored session from AsyncStorage");
+              console.log("Restored session from SecureStore");
               
               // Dispatch to context
               context.dispatch(setCurrentUser(decoded, userData));
               setUserRole(decoded.role || 'customer');
-            } else {
+            } else if (decoded.exp && decoded.exp < currentTime) {
               console.log("Stored token is expired");
               // Clean up expired token
-              await AsyncStorage.removeItem("jwt");
+              await removeToken();
             }
           } catch (decodeError) {
             console.error("Error decoding token:", decodeError);
@@ -73,7 +74,7 @@ const AppNavigator = () => {
       // and we're still in initializing state
       if (initializing) {
         // Small delay to ensure Auth context has time to process
-        // the AsyncStorage restoration first
+        // the SecureStore restoration first
         setTimeout(() => setInitializing(false), 300);
       }
     });
@@ -90,7 +91,7 @@ const AppNavigator = () => {
           if (initializing) setInitializing(false);
         } else if (firebaseUser) {
           // If Firebase is authenticated but Context is not, fetch user data
-          const token = await AsyncStorage.getItem("jwt");
+          const token = await getToken();
           if (!token) {
             // If no token but Firebase auth exists, try to get a token from backend
             console.log('Firebase auth exists but no JWT token found - should request new token');

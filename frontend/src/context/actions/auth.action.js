@@ -4,20 +4,25 @@ import Toast from "react-native-toast-message"
 import baseURL from "../../assets/common/baseurl"
 import { signOut as firebaseSignOut } from 'firebase/auth';
 import { auth } from '../../services/firebaseConfig';
+import { storeToken, removeToken } from '../../utils/secureStorage';
 
 export const SET_CURRENT_USER = "SET_CURRENT_USER";
 
+export const setCurrentUser = (user, userData = null) => {
+  return {
+    type: SET_CURRENT_USER,
+    payload: { user, userData }
+  }
+};
 
 export const loginUser = (user, dispatch) => {
     console.log("Attempting login with baseURL:", baseURL);
     console.log("Login credentials:", { email: user.email });
     
-    // Using more resilient fetch with timeout
     const timeoutPromise = new Promise((_, reject) =>
         setTimeout(() => reject(new Error('Request timed out')), 8000)
     );
     
-    // Make sure we have the correct URL format with proper slash handling
     const loginUrl = baseURL.endsWith('/') ? `${baseURL}users/login` : `${baseURL}/users/login`;
     console.log("Login URL:", loginUrl);
     
@@ -43,9 +48,9 @@ export const loginUser = (user, dispatch) => {
             if (data && data.token) {
                 const token = data.token;
                 try {
-                    // Store the token
-                    await AsyncStorage.setItem("jwt", token);
-                    console.log("Token stored in AsyncStorage");
+                    // Store the token using utility function
+                    await storeToken(token);
+                    console.log("Token stored securely");
                     
                     // Store user data separately
                     const userData = data.user || {
@@ -85,7 +90,6 @@ export const loginUser = (user, dispatch) => {
         .catch((err) => {
             console.error("Login error:", err);
             
-            // Show specific error messages based on error type
             let errorMessage = "Please check your connection and credentials";
             
             if (err.message.includes('Network request failed')) {
@@ -106,7 +110,6 @@ export const loginUser = (user, dispatch) => {
 };
 
 export const getUserProfile = (id) => {
-    // Fix URL construction here too
     const userUrl = baseURL.endsWith('/') ? `${baseURL}users/${id}` : `${baseURL}/users/${id}`;
     
     return fetch(userUrl, {
@@ -128,46 +131,25 @@ export const getUserProfile = (id) => {
 }
 
 export const logoutUser = (dispatch) => {
-    // Sign out from Firebase first
+    AsyncStorage.removeItem("userData");
+    removeToken(); // Use utility function to remove token
+    
+    // Sign out from Firebase
     try {
-        firebaseSignOut(auth)
-            .then(() => console.log("Firebase signout successful"))
-            .catch(err => console.error("Firebase signout error:", err));
-    } catch (fbErr) {
-        console.error("Error during Firebase signout:", fbErr);
+        firebaseSignOut(auth);
+    } catch (error) {
+        console.error("Error signing out from Firebase:", error);
     }
     
-    // Clear auth data from AsyncStorage
-    Promise.all([
-        AsyncStorage.removeItem("jwt"),
-        AsyncStorage.removeItem("userData")
-    ])
-        .then(() => {
-            console.log("Auth data removed from AsyncStorage");
-            dispatch(setCurrentUser({}));
-        })
-        .catch(err => {
-            console.error("Error removing auth data:", err);
-        });
-}
+    dispatch(setCurrentUser({}))
+};
 
-export const setCurrentUser = (decoded, user) => {
-    return {
-        type: SET_CURRENT_USER,
-        payload: decoded,
-        userProfile: user
-    }
-}
-
-// Test function to check API connectivity
 export const testProfileUpdate = async () => {
     try {
         console.log('Testing profile update API connectivity...');
         
-        // Get the JWT token from AsyncStorage
         const token = await AsyncStorage.getItem("jwt");
         
-        // Build test URL using the same baseURL
         const testUrl = baseURL.endsWith('/') 
             ? `${baseURL}users/profile-test` 
             : `${baseURL}/users/profile-test`;
@@ -179,7 +161,7 @@ export const testProfileUpdate = async () => {
             headers: {
                 'Accept': 'application/json',
                 'Content-Type': 'application/json',
-                'Authorization': token ? `Bearer ${token}` : '' // Include auth token if available
+                'Authorization': token ? `Bearer ${token}` : ''
             }
         });
         
@@ -188,7 +170,6 @@ export const testProfileUpdate = async () => {
         if (!response.ok) {
             const errorText = await response.text();
             console.error('Test error response:', errorText);
-            // We'll continue even if test fails, since this is just a diagnostic step
             return { success: false, error: 'API test failed' };
         }
         
@@ -198,14 +179,12 @@ export const testProfileUpdate = async () => {
         return { success: true, data };
     } catch (error) {
         console.error("Test API error:", error);
-        // We'll continue even if test fails, since this is just a diagnostic step
         return { success: false, error };
     }
 };
 
 export const updateUserProfile = async (userData, dispatch) => {
     try {
-        // Get the JWT token from AsyncStorage
         const token = await AsyncStorage.getItem("jwt");
         if (!token) {
             throw new Error("Authentication token not found");
@@ -213,15 +192,12 @@ export const updateUserProfile = async (userData, dispatch) => {
         
         console.log('JWT token found:', token.substring(0, 10) + '...');
         
-        // Prepare FormData for multipart/form-data submission
         const formData = new FormData();
         
-        // Add basic profile fields
         formData.append('username', userData.username);
         formData.append('email', userData.email);
         formData.append('phone', userData.phone || '');
         
-        // Add address fields as JSON
         const addressData = {
             city: userData.address?.city || '',
             country: userData.address?.country || '',
@@ -230,20 +206,16 @@ export const updateUserProfile = async (userData, dispatch) => {
         };
         formData.append('address', JSON.stringify(addressData));
         
-        // Handle avatar upload
         if (userData.avatar) {
             if (typeof userData.avatar === 'object' && userData.avatar.uri) {
-                // If we have a local image with URI, append it to FormData
                 console.log('Adding avatar image to FormData:', userData.avatar.uri);
                 
-                // Create an object with the expected multer properties
                 formData.append('avatar', {
                     uri: userData.avatar.uri,
                     name: userData.avatar.name || 'avatar.jpg',
                     type: userData.avatar.type || 'image/jpeg'
                 });
             } else if (typeof userData.avatar === 'string') {
-                // If avatar is just a string URL, pass it along as-is
                 if (userData.avatar.startsWith('http')) {
                     console.log('Using existing avatar URL:', userData.avatar.substring(0, 30) + '...');
                     formData.append('avatarUrl', userData.avatar);
@@ -253,7 +225,6 @@ export const updateUserProfile = async (userData, dispatch) => {
             }
         }
         
-        // Use the profile update endpoint
         const updateUrl = baseURL.endsWith('/') 
             ? `${baseURL}users/profile/update` 
             : `${baseURL}/users/profile/update`;
@@ -267,7 +238,6 @@ export const updateUserProfile = async (userData, dispatch) => {
             headers: {
                 'Accept': 'application/json',
                 'Authorization': `Bearer ${token}`
-                // Don't set Content-Type header - fetch will set it with correct boundary for FormData
             }
         });
         
@@ -290,21 +260,17 @@ export const updateUserProfile = async (userData, dispatch) => {
         const data = await response.json();
         console.log('Profile update API response:', data);
         
-        // Create updated user data using the response from the server
         const updatedUserData = {
             ...userData,
-            avatar: data.user.avatar || userData.avatar, // Use the Cloudinary URL from response
+            avatar: data.user.avatar || userData.avatar,
         };
         
         console.log('Merged user data after update:', updatedUserData);
         
-        // Update the userData in AsyncStorage with the server response data
         await AsyncStorage.setItem("userData", JSON.stringify(updatedUserData));
         
-        // Get the current decoded token
         const currentToken = jwtDecode(token);
         
-        // Update the context with the new user data
         dispatch(setCurrentUser(currentToken, updatedUserData));
         
         Toast.show({

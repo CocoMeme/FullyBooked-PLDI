@@ -1,177 +1,120 @@
-import * as WebBrowser from 'expo-web-browser';
-import * as Google from 'expo-auth-session/providers/google';
-import { 
-  GoogleAuthProvider, 
-  signInWithCredential, 
-  signOut as firebaseSignOut,
-  createUserWithEmailAndPassword 
-} from 'firebase/auth';
-import { Alert } from 'react-native';
+import { GoogleSignin } from '@react-native-google-signin/google-signin';
+import { GoogleAuthProvider, signInWithCredential } from 'firebase/auth';
+import axios from 'axios';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { auth } from './firebaseConfig';
-import { api } from './api';
-import { jwtDecode } from 'jwt-decode';
+import baseURL from '../assets/common/baseurl';
+import { storeToken } from '../utils/secureStorage';
 
-// Initialize WebBrowser for OAuth redirects
-WebBrowser.maybeCompleteAuthSession();
+// Remove all direct references to SecureStore
+// Use AsyncStorage only to avoid the native module error
 
-// Create a custom hook for Google authentication
-export const useGoogleAuth = () => {
-  const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
-    clientId: '965289265275-00crng1jcruvnq9cfk51ls30qs0tt4vt.apps.googleusercontent.com',
-    redirectUri: 'https://fullybookedrn.firebaseapp.com/__/auth/handler',
-  });
+// Ensure GoogleSignin is configured
+GoogleSignin.configure({
+  webClientId: '965289265275-00crng1jcruvnq9cfk51ls30qs0tt4vt.apps.googleusercontent.com',
+  offlineAccess: true,
+  scopes: ['profile', 'email'],
+});
 
-  const signInWithGoogle = async () => {
-    try {
-      const result = await promptAsync();
-      
-      if (result.type !== 'success') {
-        throw new Error('Google sign-in was not successful');
-      }
-
-      const { id_token } = result.params;
-      
-      // Create a Google credential with the token
-      const credential = GoogleAuthProvider.credential(id_token);
-      
-      let userCredential;
-      try {
-        // Try to sign in to Firebase with the credential
-        userCredential = await signInWithCredential(auth, credential);
-      } catch (firebaseError) {
-        console.error('Firebase sign-in error:', firebaseError);
-        if (firebaseError.code === 'auth/account-exists-with-different-credential') {
-          Alert.alert('Error', 'An account already exists with the same email address but different sign-in credentials.');
-        } else {
-          Alert.alert('Error', 'Firebase authentication failed. Please try again.');
-        }
-        throw firebaseError;
-      }
-      
-      // Check if user exists in our backend, if not create one
-      const isNewUser = userCredential.additionalUserInfo?.isNewUser;
-      
-      if (isNewUser) {
-        const { user } = userCredential;
-        
-        const userData = {
-          username: user.displayName || `user_${user.uid.substring(0, 8)}`,
-          email: user.email,
-          password: `Firebase_${Math.random().toString(36).slice(-8)}`, // Generate a random password
-          firebaseUid: user.uid
-        };
-        
-        try {
-          const response = await api.post('/users/register', userData);
-          const decodedToken = response.data.token ? jwtDecode(response.data.token) : null;
-          
-          return { 
-            user: userCredential.user, 
-            token: response.data.token,
-            decodedToken
-          };
-        } catch (error) {
-          console.error('Backend registration error:', error);
-          Alert.alert('Error', 'Failed to register in our system. Please try again.');
-          await firebaseSignOut(auth);
-          throw error;
-        }
-      } else {
-        try {
-          const { user } = userCredential;
-
-          const response = await api.post('/users/google-auth', { 
-            email: user.email, 
-            firebaseUid: user.uid 
-          });
-
-          const decodedToken = response.data.token ? jwtDecode(response.data.token) : null;
-          
-          return { 
-            user: userCredential.user,
-            token: response.data.token,
-            decodedToken 
-          };
-        } catch (error) {
-          console.error('Error fetching user token:', error);
-          Alert.alert('Error', 'Authentication failed. Please try again.');
-          throw error;
-        }
-      }
-    } catch (error) {
-      console.error('Google Sign-In Error:', error);
-      
-      if (error.code === 'auth/account-exists-with-different-credential') {
-        Alert.alert('Error', 'An account already exists with the same email address but different sign-in credentials.');
-      } else {
-        Alert.alert('Error', 'Google sign-in failed. Please try again.');
-      }
-      
-      throw error;
-    }
-  };
-
-
-  const registerWithEmailAndPassword = async (email, password, username) => {
-    try {
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      const { user } = userCredential;
-
-      const userData = {
-        username: username || `user_${user.uid.substring(0, 8)}`,
-        email: user.email,
-        password: password,
-        firebaseUid: user.uid
-      };
-      
-      // Call your backend API to register the user
-      const response = await api.post('/users/register', userData);
-      
-      // For Context API integration - properly decode the token
-      const decodedToken = response.data.token ? jwtDecode(response.data.token) : null;
-      console.log('Decoded token after registration:', decodedToken);
-      
-      return { 
-        user: userCredential.user, 
-        token: response.data.token,
-        decodedToken
-      };
-    } catch (error) {
-      console.error('Registration error:', error);
-      
-      // Clean up Firebase user if backend registration fails
-      if (auth.currentUser) {
-        await firebaseSignOut(auth);
-      }
-      
-      if (error.code === 'auth/email-already-in-use') {
-        Alert.alert('Error', 'Email is already in use. Please try logging in instead.');
-      } else {
-        Alert.alert('Error', 'Registration failed. Please try again.');
-      }
-      
-      throw error;
-    }
-  };
-
-  return {
-    request,
-    response,
-    promptAsync,
-    signInWithGoogle,
-    registerWithEmailAndPassword
-  };
-};
-
-export const signOut = async () => {
+/**
+ * Sign in with Google and handle Firebase and backend authentication.
+ * @returns {Promise<Object>} User data or error
+ */
+export const signInWithGoogle = async () => {
   try {
-    await firebaseSignOut(auth);
+    // Ensure Google Play Services are available
+    await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+
+    // Sign out to force account selection
+    await GoogleSignin.signOut();
+
+    // Start Google Sign-In process
+    const googleUser = await GoogleSignin.signIn();
+    console.log('Google Sign-In Response:', googleUser);
+
+    // Access idToken correctly - it's nested inside data object
+    const idToken = googleUser.idToken || googleUser.data?.idToken;
+    console.log('ID Token:', idToken);
+    if (!idToken) {
+      throw new Error('No ID token found in Google Sign-In response');
+    }
+
+    // Create Firebase credential with the Google ID token
+    const credential = GoogleAuthProvider.credential(idToken);
+
+    // Sign in to Firebase with the credential
+    const firebaseUser = await signInWithCredential(auth, credential);
+    console.log('Firebase Authentication Successful:', firebaseUser.user);
+
+    // Get Firebase ID token for backend authentication
+    const firebaseIdToken = await firebaseUser.user.getIdToken(true); // Force refresh
+    if (!firebaseIdToken) {
+      console.error('Firebase auth exists but no JWT token found - should request new token');
+      throw new Error('Failed to retrieve Firebase ID token');
+    }
+
+    // Sync with backend
+    let backendResponse;
+    try {
+      // Use baseURL directly instead of API_URL
+      console.log('Attempting to connect to:', baseURL + 'users/firebase-token');
+      
+      backendResponse = await axios.post(
+        baseURL + 'users/firebase-token',
+        {
+          email: firebaseUser.user.email,
+          firebaseUid: firebaseUser.user.uid,
+        },
+        {
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      // Add debug logging to see the full response
+      console.log('Backend response:', backendResponse.data);
+
+      // Check if the response contains a token before storing
+      if (backendResponse.data && backendResponse.data.token) {
+        // Store user data and token securely
+        const userData = {
+          ...backendResponse.data.user,
+          token: backendResponse.data.token,
+        };
+
+        // Store non-sensitive user data in AsyncStorage
+        await AsyncStorage.setItem('userData', JSON.stringify({
+          ...backendResponse.data.user,
+        }));
+        
+        // Store token using utility function
+        await storeToken(backendResponse.data.token);
+
+        console.log('Google Sign-In and backend sync successful:', userData);
+        return userData;
+      } else {
+        console.error('No token found in response:', backendResponse.data);
+        // Return empty object instead of throwing error
+        return { success: false, error: 'No authentication token returned from the server' };
+      }
+    } catch (error) {
+      console.error('Backend sync error:', error.message || 'Unknown error');
+      console.error('Backend sync error details:', {
+        url: baseURL + 'users/firebase-token',
+        status: error.response?.status,
+        data: error.response?.data
+      });
+      
+      if (error.response?.status === 404) {
+        return { userNotFound: true };
+      }
+      
+      // Return error object instead of throwing
+      return { success: false, error: error.message || 'Unknown error' };
+    }
   } catch (error) {
-    console.error('Sign out error:', error);
+    console.error('Google Sign-In Error:', error);
     throw error;
   }
-};
-
-export const getCurrentUser = () => {
-  return auth.currentUser;
 };

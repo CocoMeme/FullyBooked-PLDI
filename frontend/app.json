@@ -30,12 +30,19 @@
     },
     "plugins": [
       "expo-sqlite",
-      "@react-native-google-signin/google-signin"
+      [
+        "@react-native-google-signin/google-signin",
+        {
+          "webClientId": "965289265275-00crng1jcruvnq9cfk51ls30qs0tt4vt.apps.googleusercontent.com",
+          "iosUrlScheme": "com.googleusercontent.apps.965289265275-00crng1jcruvnq9cfk51ls30qs0tt4vt"
+        }
+      ]
     ],
     "extra": {
       "eas": {
         "projectId": "ad384908-c562-427e-b8eb-a790a6957083"
       }
-    }
+    },
+    "entryPoint": "./App.js"
   }
 }

@@ -5,7 +5,7 @@ const userSchema = new mongoose.Schema({
     firebaseUid: {
         type: String,
         unique: true,
-        required: true
+        sparse: true, // This allows null/undefined values and maintains uniqueness for non-null values
     },
     username: {
         type: String,
