@@ -13,11 +13,11 @@ if (Platform.OS === 'android') {
     baseURL = 'http://192.168.1.66:3000/api/';
     // baseURL = 'http://10.0.2.2:3000/api/';
   } else {
-    // Andrei's local IP address
-  //  baseURL = 'http://192.168.1.66:3000/api/'; 
+    baseURL = 'http://192.168.1.66:3000/api/';
 
     // Joey's local IP address
-     baseURL = 'http://192.168.1.253:3000/api/'
+    // baseURL = 'http://192.168.1.253:3000/api/'
+
   }
 } else if (Platform.OS === 'ios') {
   if (isEmulator) {
