@@ -15,6 +15,31 @@ import Header from '../../components/Header';
 import { COLORS, FONTS, SIZES } from '../../constants/theme';
 import { fetchAllOrders, updateOrderStatus } from '../../redux/actions/orderActions';
 
+const formatCurrency = (amount) => {
+  if (!amount && amount !== 0) return '₱0.00';
+  return '₱' + amount.toFixed(2).replace(/\d(?=(\d{3})+\.)/g, '$&,');
+};
+
+// Format date to a readable format
+const formatDate = (dateString) => {
+  if (!dateString) return 'N/A';
+  
+  try {
+    const date = new Date(dateString);
+    // Check if date is valid
+    if (isNaN(date.getTime())) return 'N/A';
+    
+    return date.toLocaleDateString('en-PH', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
+  } catch (error) {
+    console.error('Date formatting error:', error);
+    return 'N/A';
+  }
+};
+
 const OrderManagement = ({ navigation }) => {
   const dispatch = useDispatch();
   const { orders, loading, error } = useSelector(state => state.orders);
@@ -76,59 +101,66 @@ const OrderManagement = ({ navigation }) => {
     }
   };
 
-  const renderOrderItem = ({ item }) => (
-    <View style={styles.orderItem}>
-      <View style={styles.orderHeader}>
-        <Text style={styles.orderNumber}>{item.orderNumber || 'N/A'}</Text>
-        <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) }]}>
-          <Text style={styles.statusText}>{item.status.toUpperCase()}</Text>
+  const renderOrderItem = ({ item }) => {
+    return (
+      <View style={styles.orderItem}>
+        <View style={styles.orderHeader}>
+          <Text style={styles.orderNumber}>ORDER #{item._id ? item._id.substring(0, 8).toUpperCase() : 'N/A'}</Text>
+          <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) }]}>
+            <Text style={styles.statusText}>{item.status.toUpperCase()}</Text>
+          </View>
         </View>
-      </View>
-      
-      <View style={styles.orderDetails}>
-        <View style={styles.detailRow}>
-          <Text style={styles.detailLabel}>Customer:</Text>
-          <Text style={styles.detailValue}>{item.customerUsername || 'Unknown'}</Text>
-        </View>
-        <View style={styles.detailRow}>
-          <Text style={styles.detailLabel}>Email:</Text>
-          <Text style={styles.detailValue}>{item.customerEmail || 'N/A'}</Text>
-        </View>
-        <View style={styles.detailRow}>
-          <Text style={styles.detailLabel}>Date:</Text>
-          <Text style={styles.detailValue}>{item.date ? new Date(item.date).toLocaleDateString() : 'N/A'}</Text>
-        </View>
-        <View style={styles.detailRow}>
-          <Text style={styles.detailLabel}>Items:</Text>
-          <Text style={styles.detailValue}>
-            {item.items.map((orderItem) => `${orderItem.book.title} (x${orderItem.quantity})`).join(', ')}
-          </Text>
-        </View>
-        <View style={styles.detailRow}>
-          <Text style={styles.detailLabel}>Total:</Text>
-          <Text style={styles.totalAmount}>${item.totalAmount ? item.totalAmount.toFixed(2) : '0.00'}</Text>
-        </View>
-      </View>
-      
-      <View style={styles.actionButtons}>
-        <TouchableOpacity 
-          style={[styles.actionButton, styles.viewButton]}
-          onPress={() => Alert.alert('Info', 'View order details feature coming soon')}
-        >
-          <Ionicons name="eye-outline" size={18} color="#fff" />
-          <Text style={styles.actionButtonText}>View</Text>
-        </TouchableOpacity>
         
-        <TouchableOpacity 
-          style={[styles.actionButton, styles.editButton]}
-          onPress={() => handleUpdateStatus(item._id)}
-        >
-          <Ionicons name="refresh-outline" size={18} color="#fff" />
-          <Text style={styles.actionButtonText}>Status</Text>
-        </TouchableOpacity>
+        <View style={styles.orderDetails}>
+          <View style={styles.detailRow}>
+            <Text style={styles.detailLabel}>Email:</Text>
+            <Text style={styles.detailValue}>
+              {item.user && item.user.email ? item.user.email : (item.customerEmail || 'N/A')}
+            </Text>
+          </View>
+          <View style={styles.detailRow}>
+            <Text style={styles.detailLabel}>Date:</Text>
+            <Text style={styles.detailValue}>{formatDate(item.createdAt)}</Text>
+          </View>
+          <View style={styles.detailRow}>
+            <Text style={styles.detailLabel}>Items:</Text>
+            <Text style={styles.detailValue}>
+              {item.items && item.items.length ? 
+                item.items.map((orderItem) => {
+                  const bookTitle = orderItem.book && typeof orderItem.book === 'object' ? 
+                    orderItem.book.title : 'Unknown book';
+                  return `${bookTitle} (x${orderItem.quantity})`;
+                }).join(', ') : 
+                'No items'
+              }
+            </Text>
+          </View>
+          <View style={styles.detailRow}>
+            <Text style={styles.detailLabel}>Total:</Text>
+            <Text style={styles.totalAmount}>{formatCurrency(item.totalAmount)}</Text>
+          </View>
+        </View>
+        
+        <View style={styles.actionButtons}>
+          <TouchableOpacity 
+            style={[styles.actionButton, styles.viewButton]}
+            onPress={() => Alert.alert('Info', 'View order details feature coming soon')}
+          >
+            <Ionicons name="eye-outline" size={18} color="#fff" />
+            <Text style={styles.actionButtonText}>View</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={[styles.actionButton, styles.editButton]}
+            onPress={() => handleUpdateStatus(item._id)}
+          >
+            <Ionicons name="refresh-outline" size={18} color="#fff" />
+            <Text style={styles.actionButtonText}>Status</Text>
+          </TouchableOpacity>
+        </View>
       </View>
-    </View>
-  );
+    );
+  };
 
   return (
     <View style={styles.container}>

@@ -14,7 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import axios from 'axios';
 import { COLORS, FONTS, SIZES, SHADOWS } from '../../constants/theme';
 import Header from '../../components/Header';
-import API_URL from '../../services/api';
+import { API_URL, api } from '../../services/api';
 import AuthGlobal from '../../context/store/AuthGlobal';
 import { logoutUser } from '../../context/actions/auth.action';
 import { CommonActions } from '@react-navigation/native';
@@ -32,88 +32,85 @@ const AdminHomeScreen = ({ navigation }) => {
   });
   const [loading, setLoading] = useState(true);
 
+  // Helper function for formatting currency with peso sign and thousand separators
+  const formatCurrency = (amount) => {
+    return '₱' + amount.toFixed(2).replace(/\d(?=(\d{3})+\.)/g, '$&,');
+  };
+
+  // Format date to a readable format
+  const formatDate = (dateString) => {
+    if (!dateString) return 'N/A';
+    
+    try {
+      const date = new Date(dateString);
+      // Check if date is valid
+      if (isNaN(date.getTime())) return 'N/A';
+      
+      return date.toLocaleDateString('en-PH', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      });
+    } catch (error) {
+      console.error('Date formatting error:', error);
+      return 'N/A';
+    }
+  };
+
   // Fetch data from the backend
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
         setLoading(true);
-        // In a real app, you would fetch this data from your API
-        // const booksResponse = await axios.get(API_URL.GET_ALL_BOOKS);
-        // const ordersResponse = await axios.get(API_URL.GET_RECENT_ORDERS);
-        // const usersResponse = await axios.get(API_URL.GET_RECENT_USERS);
-        // const statsResponse = await axios.get(API_URL.GET_DASHBOARD_STATS);
         
-        // Dummy data for demonstration
-        const dummyBooks = [
-          {
-            _id: '1',
-            title: 'The Great Gatsby',
-            category: 'Fiction',
-            price: 12.99,
-            image: 'https://m.media-amazon.com/images/I/71FTb9X6wsL._AC_UF1000,1000_QL80_.jpg'
-          },
-          {
-            _id: '2',
-            title: 'To Kill a Mockingbird',
-            category: 'Fiction',
-            price: 14.50,
-            image: 'https://upload.wikimedia.org/wikipedia/commons/4/4f/To_Kill_a_Mockingbird_%28first_edition_cover%29.jpg'
-          },
-          {
-            _id: '3',
-            title: 'The Hobbit',
-            category: 'Fantasy',
-            price: 16.75,
-            image: 'https://m.media-amazon.com/images/I/710+HcoP38L._AC_UF1000,1000_QL80_.jpg'
-          }
-        ];
+        // Fetch real data from API endpoints
+        const booksResponse = await api.get(API_URL.GET_ALL_BOOKS);
+        const ordersResponse = await api.get(API_URL.GET_ALL_ORDERS);
+        const usersResponse = await api.get('/users/all');
         
-        const dummyOrders = [
-          {
-            _id: '1',
-            orderNumber: 'ORD-001-2025',
-            date: '2025-03-15T14:30:00.000Z',
-            status: 'delivered',
-            totalAmount: 85.97
-          },
-          {
-            _id: '2',
-            orderNumber: 'ORD-002-2025',
-            date: '2025-03-20T09:45:00.000Z',
-            status: 'processing',
-            totalAmount: 42.50
-          }
-        ];
-
-        const dummyUsers = [
-          {
-            _id: '1',
-            username: 'johndoe',
-            email: 'john@example.com',
-            createdAt: '2025-01-15T08:30:00.000Z'
-          },
-          {
-            _id: '2',
-            username: 'janedoe',
-            email: 'jane@example.com',
-            createdAt: '2025-02-05T10:15:00.000Z'
-          }
-        ];
+        // Set the fetched data - handle nested response formats correctly
+        const fetchedBooks = booksResponse.data.books || []; // Access the 'books' property from the response
+        const fetchedOrders = ordersResponse.data.orders || []; // Access the 'orders' property from the response
+        const fetchedUsers = usersResponse.data || [];
         
-        const dummyStats = {
-          totalBooks: 245,
-          totalOrders: 187,
-          totalUsers: 312,
-          totalSales: 9678.50
-        };
+        console.log('Fetched books:', fetchedBooks.length);
+        console.log('Fetched orders:', fetchedOrders.length);
+        console.log('Fetched users:', fetchedUsers.length);
         
-        setBooks(dummyBooks);
-        setOrders(dummyOrders);
-        setUsers(dummyUsers);
-        setStats(dummyStats);
+        // Calculate total sales from orders
+        const totalSales = fetchedOrders.reduce((total, order) => {
+          return total + (order.totalAmount || 0);
+        }, 0);
+        
+        // Set state with real data
+        setBooks(fetchedBooks.slice(0, 5)); // Show only the most recent 5 books
+        setOrders(fetchedOrders.slice(0, 5)); // Show only the most recent 5 orders
+        setUsers(fetchedUsers.slice(0, 5)); // Store users for potential future use
+        
+        // Set statistics data
+        setStats({
+          totalBooks: fetchedBooks.length,
+          totalOrders: fetchedOrders.length,
+          totalUsers: fetchedUsers.length,
+          totalSales: totalSales
+        });
       } catch (error) {
         console.error('Error fetching dashboard data:', error);
-        Alert.alert('Error', 'Failed to load dashboard data');
+        Alert.alert(
+          'Error', 
+          'Failed to load dashboard data. ' + (error.response?.data?.message || error.message)
+        );
+        
+        // Set some fallback data if API calls fail
+        setBooks([]);
+        setOrders([]);
+        setUsers([]);
+        setStats({
+          totalBooks: 0,
+          totalOrders: 0,
+          totalUsers: 0,
+          totalSales: 0
+        });
       } finally {
         setLoading(false);
       }
@@ -143,14 +140,14 @@ const AdminHomeScreen = ({ navigation }) => {
       onPress={() => navigation.navigate('ProductManagement', { productId: item._id })}
     >
       <Image 
-        source={{ uri: item.image }}
+        source={{ uri: item.coverImage && item.coverImage.length > 0 ? item.coverImage[0] : 'https://via.placeholder.com/140x160?text=No+Image' }}
         style={styles.bookImage}
         resizeMode="cover"
       />
       <View style={styles.bookInfo}>
         <Text style={styles.bookTitle} numberOfLines={1}>{item.title}</Text>
         <Text style={styles.bookCategory}>{item.category}</Text>
-        <Text style={styles.bookPrice}>${item.price.toFixed(2)}</Text>
+        <Text style={styles.bookPrice}>{formatCurrency(item.price || 0)}</Text>
       </View>
     </TouchableOpacity>
   );
@@ -243,7 +240,7 @@ const AdminHomeScreen = ({ navigation }) => {
           )}
           {renderStatCard(
             'Sales', 
-            `$${stats.totalSales.toFixed(2)}`, 
+            formatCurrency(stats.totalSales), 
             'cash-outline', 
             '#F44336', 
             () => navigation.navigate('OrderManagement')
@@ -345,13 +342,13 @@ const AdminHomeScreen = ({ navigation }) => {
               onPress={() => navigation.navigate('OrderManagement')}
             >
               <View style={styles.orderInfo}>
-                <Text style={styles.orderNumber}>{order.orderNumber}</Text>
-                <Text style={styles.orderDate}>{new Date(order.date).toLocaleDateString()}</Text>
+                <Text style={styles.orderNumber}>Order #{order._id.substring(0, 8)}</Text>
+                <Text style={styles.orderDate}>{formatDate(order.createdAt)}</Text>
               </View>
               <View style={styles.orderMeta}>
-                <Text style={styles.orderAmount}>${order.totalAmount.toFixed(2)}</Text>
+                <Text style={styles.orderAmount}>{formatCurrency(order.totalAmount || 0)}</Text>
                 <View style={[styles.statusBadge, { backgroundColor: getStatusColor(order.status) }]}>
-                  <Text style={styles.statusText}>{order.status.toUpperCase()}</Text>
+                  <Text style={styles.statusText}>{order.status?.toUpperCase() || 'PENDING'}</Text>
                 </View>
               </View>
             </TouchableOpacity>
