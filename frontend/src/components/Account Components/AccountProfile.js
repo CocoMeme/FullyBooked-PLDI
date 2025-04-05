@@ -10,11 +10,13 @@ import {
   TextInput,
   Platform,
   ScrollView,
+  Modal,
 } from 'react-native';
 import { COLORS, FONTS, SIZES } from '../../constants/theme';
 import AuthGlobal from '../../context/store/AuthGlobal';
 import { updateUserProfile } from '../../context/actions/auth.action';
 import * as ImagePicker from 'expo-image-picker';
+import { MaterialIcons } from '@expo/vector-icons';
 import Button from '../Button';
 import { useNavigation } from '@react-navigation/native';
 
@@ -40,6 +42,8 @@ const AccountProfile = ({ onComplete }) => {
       zipcode: '',
     },
   });
+
+  const [imageOptions, setImageOptionsVisible] = useState(false);
 
   useEffect(() => {
     loadUserData();
@@ -101,6 +105,19 @@ const AccountProfile = ({ onComplete }) => {
     }
   };
 
+  // Request camera permissions
+  const requestCameraPermission = async () => {
+    if (Platform.OS !== 'web') {
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission Required', 'Sorry, we need camera permissions to take photos!');
+        return false;
+      }
+      return true;
+    }
+    return false;
+  };
+
   // Image picker function
   const pickImage = async () => {
     try {
@@ -109,7 +126,7 @@ const AccountProfile = ({ onComplete }) => {
       let result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
-        aspect: undefined, // Remove the fixed aspect ratio constraint
+        aspect: [4, 4],
         quality: 0.7,
       });
 
@@ -132,6 +149,50 @@ const AccountProfile = ({ onComplete }) => {
       console.error('Error picking image:', error);
       Alert.alert('Error', 'Failed to pick an image. Please try again.');
     }
+  };
+
+  // Take a photo using the camera
+  const takePhoto = async () => {
+    try {
+      const hasPermission = await requestCameraPermission();
+      
+      if (!hasPermission) {
+        return;
+      }
+      
+      let result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 0.7,
+      });
+      
+      console.log('Camera result:', result);
+      
+      if (!result.cancelled && result.assets && result.assets.length > 0) {
+        const imageUri = result.assets[0].uri;
+        
+        // Store image metadata for FormData upload
+        setUserData({
+          ...userData,
+          avatar: {
+            uri: imageUri,
+            name: 'avatar-camera.jpg',
+            type: 'image/jpeg'
+          }
+        });
+        
+        console.log('Photo taken:', imageUri);
+      }
+    } catch (error) {
+      console.error('Error taking photo:', error);
+      Alert.alert('Error', 'Failed to take a photo. Please try again.');
+    }
+  };
+
+  // Show image source options (Camera or Gallery)
+  const showImageOptions = () => {
+    setImageOptionsVisible(true);
   };
 
   // Handle form field changes
@@ -217,7 +278,7 @@ const AccountProfile = ({ onComplete }) => {
           source={{ uri: userData.avatar?.uri || userData.avatar || DEFAULT_AVATAR }}
           style={styles.avatar}
         />
-        <TouchableOpacity style={styles.changePhotoButton} onPress={pickImage}>
+        <TouchableOpacity style={styles.changePhotoButton} onPress={showImageOptions}>
           <Text style={styles.changePhotoText}>Change Photo</Text>
         </TouchableOpacity>
       </View>
@@ -323,6 +384,49 @@ const AccountProfile = ({ onComplete }) => {
           disabled={updateLoading}
         />
       </View>
+
+      {/* Image Source Options Modal */}
+      <Modal
+        visible={imageOptions}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setImageOptionsVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.optionsContainer}>
+            <Text style={styles.optionsTitle}>Profile Photo</Text>
+            
+            <TouchableOpacity 
+              style={styles.optionItem} 
+              onPress={() => {
+                setImageOptionsVisible(false);
+                pickImage();
+              }}
+            >
+              <MaterialIcons name="photo-library" size={24} color={COLORS.primary} />
+              <Text style={styles.optionText}>Choose from Gallery</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={styles.optionItem} 
+              onPress={() => {
+                setImageOptionsVisible(false);
+                takePhoto();
+              }}
+            >
+              <MaterialIcons name="camera-alt" size={24} color={COLORS.primary} />
+              <Text style={styles.optionText}>Take a Photo</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={[styles.optionItem, styles.cancelOption]} 
+              onPress={() => setImageOptionsVisible(false)}
+            >
+              <Text style={styles.cancelText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 };
@@ -397,6 +501,44 @@ const styles = StyleSheet.create({
   saveButton: {
     flex: 1,
     marginLeft: SIZES.small / 2,
+  },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  optionsContainer: {
+    backgroundColor: '#fff',
+    borderRadius: SIZES.small,
+    padding: SIZES.medium,
+    width: '80%',
+  },
+  optionsTitle: {
+    ...FONTS.bold,
+    fontSize: SIZES.medium,
+    marginBottom: SIZES.medium,
+    textAlign: 'center',
+  },
+  optionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: SIZES.small,
+  },
+  optionText: {
+    ...FONTS.medium,
+    fontSize: SIZES.medium,
+    marginLeft: SIZES.small,
+  },
+  cancelOption: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: SIZES.medium,
+  },
+  cancelText: {
+    ...FONTS.medium,
+    fontSize: SIZES.medium,
+    color: COLORS.primary,
   },
 });
 
