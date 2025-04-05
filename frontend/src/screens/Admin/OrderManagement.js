@@ -144,7 +144,7 @@ const OrderManagement = ({ navigation }) => {
         <View style={styles.actionButtons}>
           <TouchableOpacity 
             style={[styles.actionButton, styles.viewButton]}
-            onPress={() => Alert.alert('Info', 'View order details feature coming soon')}
+            onPress={() => navigation.navigate('OrderDetails', { orderId: item._id })}
           >
             <Ionicons name="eye-outline" size={18} color="#fff" />
             <Text style={styles.actionButtonText}>View</Text>

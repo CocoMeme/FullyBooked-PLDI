@@ -4,6 +4,7 @@ import AdminHomeScreen from '../screens/Admin/AdminHomeScreen';
 import ProductManagement from '../screens/Admin/ProductManagement';
 import UserManagement from '../screens/Admin/UserManagement';
 import OrderManagement from '../screens/Admin/OrderManagement';
+import OrderDetails from '../components/Account Components/OrderDetails';
 
 const Stack = createStackNavigator();
 
@@ -15,6 +16,7 @@ const AdminNavigator = () => {
       <Stack.Screen name="UserManagement" component={UserManagement} />
       <Stack.Screen name="OrderManagement" component={OrderManagement} />
       <Stack.Screen name="AdminBooks" component={ProductManagement} />
+      <Stack.Screen name="OrderDetails" component={OrderDetails} />
     </Stack.Navigator>
   );
 };

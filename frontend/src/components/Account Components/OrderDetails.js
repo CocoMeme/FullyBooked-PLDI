@@ -8,15 +8,19 @@ import {
   SafeAreaView,
   ActivityIndicator,
   FlatList,
-  Alert
+  Alert,
+  Image
 } from 'react-native';
 import { COLORS, FONTS, SIZES } from '../../constants/theme';
 import Header from '../Header';
+import { api, API_URL } from '../../services/api';
+import axios from 'axios';
 
 const OrderDetails = ({ route, navigation }) => {
-  const { order } = route.params;
-  const [loading, setLoading] = useState(false);
+  const { orderId } = route.params;
+  const [loading, setLoading] = useState(true);
   const [orderDetails, setOrderDetails] = useState(null);
+  const [booksDetails, setBooksDetails] = useState({});
 
   useEffect(() => {
     fetchOrderDetails();
@@ -26,10 +30,15 @@ const OrderDetails = ({ route, navigation }) => {
     try {
       setLoading(true);
   
-      // Replace with your actual API endpoint
-      const response = await axios.get(`/api/orders/${order.id}`);
-      console.log('Order details fetched:', response.data); // Debug log
-      setOrderDetails(response.data);
+      const response = await api.get(API_URL.GET_ORDER_DETAILS(orderId));
+      console.log('Order details fetched:', response.data); 
+      
+      const orderData = response.data;
+      setOrderDetails(orderData);
+      
+      if (orderData && orderData.items && orderData.items.length) {
+        await fetchBooksDetails(orderData.items);
+      }
     } catch (error) {
       console.error('Error fetching order details:', error);
       Alert.alert('Error', 'Unable to load order details. Please try again.');
@@ -37,19 +46,76 @@ const OrderDetails = ({ route, navigation }) => {
       setLoading(false);
     }
   };
+
+  const fetchBooksDetails = async (items) => {
+    try {
+      const bookIds = new Set();
+      items.forEach(item => {
+        if (item.book) {
+          const bookId = typeof item.book === 'object' ? item.book._id : item.book;
+          bookIds.add(bookId);
+        }
+      });
+      
+      const booksData = {};
+      await Promise.all(
+        Array.from(bookIds).map(async (bookId) => {
+          try {
+            const id = String(bookId);
+            console.log('Fetching book details, ID:', id);
+            
+            const response = await api.get(`/books/${id}`);
+            
+            if (response.data && response.data.book) {
+              booksData[id] = response.data.book;
+              console.log(`Successfully loaded book: ${response.data.book.title}`);
+            } else {
+              console.log(`No book data found for ID: ${id}`);
+            }
+          } catch (error) {
+            console.error(`Error fetching details for book ${bookId}:`, error.message);
+          }
+        })
+      );
+      
+      console.log(`Loaded ${Object.keys(booksData).length} books out of ${bookIds.size} IDs`);
+      setBooksDetails(booksData);
+    } catch (error) {
+      console.error('Error fetching books details:', error);
+    }
+  };
   
-  // Format date to readable format
   const formatDate = (dateString) => {
-    const options = { year: 'numeric', month: 'long', day: 'numeric' };
-    return new Date(dateString).toLocaleDateString(undefined, options);
+    if (!dateString) return 'N/A';
+    
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) return 'N/A';
+      
+      return date.toLocaleDateString('en-PH', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+    } catch (error) {
+      console.error('Date formatting error:', error);
+      return 'N/A';
+    }
   };
 
-  // Function to get the color based on order status
+  const formatCurrency = (amount) => {
+    if (!amount && amount !== 0) return '₱0.00';
+    return '₱' + amount.toFixed(2).replace(/\d(?=(\d{3})+\.)/g, '$&,');
+  };
+
   const getStatusColor = (status) => {
-    switch(status) {
+    if (!status) return COLORS.primary;
+    
+    switch(status.toLowerCase()) {
       case 'delivered':
         return COLORS.success;
       case 'processing':
+      case 'pending':
         return COLORS.warning;
       case 'shipped':
         return COLORS.info;
@@ -60,21 +126,130 @@ const OrderDetails = ({ route, navigation }) => {
     }
   };
 
-  // Calculate estimated delivery date
   const getEstimatedDelivery = (date, status) => {
-    const orderDate = new Date(date);
-    let deliveryDate = new Date(orderDate);
+    if (!date) return 'N/A';
     
-    if (status === 'processing') {
-      deliveryDate.setDate(orderDate.getDate() + 7);
-    } else if (status === 'shipped') {
-      deliveryDate.setDate(orderDate.getDate() + 3);
-    } else if (status === 'delivered') {
-      // For delivered orders, just return the order date + 5 days as estimated delivery
-      deliveryDate.setDate(orderDate.getDate() + 5);
+    try {
+      const orderDate = new Date(date);
+      let deliveryDate = new Date(orderDate);
+      
+      if (!status) return formatDate(deliveryDate);
+      
+      switch(status.toLowerCase()) {
+        case 'processing':
+        case 'pending':
+          deliveryDate.setDate(orderDate.getDate() + 7);
+          break;
+        case 'shipped':
+          deliveryDate.setDate(orderDate.getDate() + 3);
+          break;
+        case 'delivered':
+          deliveryDate.setDate(orderDate.getDate() + 5);
+          break;
+      }
+      
+      return formatDate(deliveryDate);
+    } catch (error) {
+      console.error('Error calculating estimated delivery:', error);
+      return 'N/A';
+    }
+  };
+
+  const calculateOrderTotal = () => {
+    if (!orderDetails || !orderDetails.items) return 0;
+    
+    let total = 0;
+    orderDetails.items.forEach(item => {
+      const bookId = typeof item.book === 'object' ? item.book._id : item.book;
+      const bookIdString = String(bookId);
+      const bookDetails = booksDetails[bookIdString] || {};
+      
+      const bookPrice = bookDetails.price || 0;
+      const bookDiscountPrice = bookDetails.discountPrice || 0;
+      const hasDiscount = bookDetails.tag === 'Sale' && bookDiscountPrice > 0;
+      const finalPrice = hasDiscount ? bookDiscountPrice : bookPrice;
+      
+      total += finalPrice * item.quantity;
+    });
+    
+    return total;
+  };
+
+  const calculateOrderTotals = () => {
+    if (!orderDetails || !orderDetails.items) {
+      return { originalTotal: 0, discountedTotal: 0, saved: 0 };
     }
     
-    return formatDate(deliveryDate);
+    let originalTotal = 0;
+    let discountedTotal = 0;
+    
+    orderDetails.items.forEach(item => {
+      const bookId = typeof item.book === 'object' ? item.book._id : item.book;
+      const bookIdString = String(bookId);
+      const bookDetails = booksDetails[bookIdString] || {};
+      
+      const bookPrice = bookDetails.price || 0;
+      const bookDiscountPrice = bookDetails.discountPrice || 0;
+      const hasDiscount = bookDetails.tag === 'Sale' && bookDiscountPrice > 0;
+      const finalPrice = hasDiscount ? bookDiscountPrice : bookPrice;
+      
+      // Add to original total (always use original price)
+      originalTotal += bookPrice * item.quantity;
+      
+      // Add to discounted total (use discounted price if available)
+      discountedTotal += finalPrice * item.quantity;
+    });
+    
+    const saved = originalTotal - discountedTotal;
+    
+    return { originalTotal, discountedTotal, saved };
+  };
+
+  const renderBookItem = ({ item }) => {
+    // Get the book ID consistently 
+    const bookId = typeof item.book === 'object' ? item.book._id : item.book;
+    const bookIdString = String(bookId);
+    
+    // Look up book details using the string ID
+    const bookDetails = booksDetails[bookIdString] || {};
+    const bookTitle = bookDetails.title || 'Book details not available';
+    const bookPrice = bookDetails.price || 0;
+    const bookDiscountPrice = bookDetails.discountPrice || 0;
+    const hasDiscount = bookDetails.tag === 'Sale' && bookDiscountPrice > 0;
+    const finalPrice = hasDiscount ? bookDiscountPrice : bookPrice;
+    const bookCover = bookDetails.coverImage?.[0] || null;
+    
+    return (
+      <View style={styles.productItem}>
+        {bookCover ? (
+          <Image 
+            source={{ uri: bookCover }} 
+            style={styles.productImage} 
+            resizeMode="cover"
+          />
+        ) : (
+          <View style={styles.productImagePlaceholder}>
+            <Text style={styles.productImageText}>{bookTitle.charAt(0)}</Text>
+          </View>
+        )}
+        <View style={styles.productInfo}>
+          <Text style={styles.productTitle}>{bookTitle}</Text>
+          {hasDiscount ? (
+            <View style={styles.priceContainer}>
+              <Text style={styles.originalPrice}>{formatCurrency(bookPrice)}</Text>
+              <Text style={styles.discountPrice}>{formatCurrency(bookDiscountPrice)}</Text>
+            </View>
+          ) : (
+            <Text style={styles.productPrice}>{formatCurrency(bookPrice)}</Text>
+          )}
+          <Text style={styles.productQuantity}>Quantity: {item.quantity}</Text>
+        </View>
+        <View style={styles.productTotalContainer}>
+          <Text style={styles.productTotalLabel}>Subtotal</Text>
+          <Text style={styles.productTotal}>{formatCurrency(finalPrice * item.quantity)}</Text>
+        </View>
+      </View>
+    );
   };
 
   if (loading) {
@@ -83,6 +258,7 @@ const OrderDetails = ({ route, navigation }) => {
         <Header title="Order Details" showBackButton={true} onBackPress={() => navigation.goBack()} />
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={COLORS.primary} />
+          <Text style={styles.loadingText}>Loading order details...</Text>
         </View>
       </SafeAreaView>
     );
@@ -112,7 +288,7 @@ const OrderDetails = ({ route, navigation }) => {
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.orderInfoCard}>
           <View style={styles.orderHeader}>
-            <Text style={styles.orderId}>Order #{orderDetails.orderNumber}</Text>
+            <Text style={styles.orderId}>ORDER #{orderDetails._id ? orderDetails._id.substring(0, 8).toUpperCase() : 'N/A'}</Text>
             <View style={[
               styles.statusBadge, 
               { backgroundColor: getStatusColor(orderDetails.status) + '20' }
@@ -121,7 +297,7 @@ const OrderDetails = ({ route, navigation }) => {
                 styles.statusText, 
                 { color: getStatusColor(orderDetails.status) }
               ]}>
-                {orderDetails.status.toUpperCase()}
+                {orderDetails.status ? orderDetails.status.toUpperCase() : 'PENDING'}
               </Text>
             </View>
           </View>
@@ -129,16 +305,16 @@ const OrderDetails = ({ route, navigation }) => {
           <View style={styles.orderDateContainer}>
             <View style={styles.dateRow}>
               <Text style={styles.dateLabel}>Order Date:</Text>
-              <Text style={styles.dateValue}>{formatDate(orderDetails.date)}</Text>
+              <Text style={styles.dateValue}>{formatDate(orderDetails.createdAt)}</Text>
             </View>
             
-            {orderDetails.status !== 'cancelled' && (
+            {orderDetails.status !== 'Cancelled' && (
               <View style={styles.dateRow}>
                 <Text style={styles.dateLabel}>
-                  {orderDetails.status === 'delivered' ? 'Delivered On:' : 'Est. Delivery:'}
+                  {orderDetails.status === 'Delivered' ? 'Delivered On:' : 'Est. Delivery:'}
                 </Text>
                 <Text style={styles.dateValue}>
-                  {getEstimatedDelivery(orderDetails.date, orderDetails.status)}
+                  {getEstimatedDelivery(orderDetails.createdAt, orderDetails.status)}
                 </Text>
               </View>
             )}
@@ -149,23 +325,8 @@ const OrderDetails = ({ route, navigation }) => {
           <Text style={styles.sectionTitle}>Order Items</Text>
           <FlatList
             data={orderDetails.items}
-            keyExtractor={(item) => item.id}
-            renderItem={({ item }) => (
-              <View style={styles.productItem}>
-                <View style={styles.productImagePlaceholder}>
-                  <Text style={styles.productImageText}>{item.title.charAt(0)}</Text>
-                </View>
-                <View style={styles.productInfo}>
-                  <Text style={styles.productTitle}>{item.title}</Text>
-                  <Text style={styles.productPrice}>${item.price.toFixed(2)}</Text>
-                  <Text style={styles.productQuantity}>Quantity: {item.quantity}</Text>
-                </View>
-                <View style={styles.productTotalContainer}>
-                  <Text style={styles.productTotalLabel}>Subtotal</Text>
-                  <Text style={styles.productTotal}>${(item.price * item.quantity).toFixed(2)}</Text>
-                </View>
-              </View>
-            )}
+            keyExtractor={(item, index) => item._id || index.toString()}
+            renderItem={renderBookItem}
             scrollEnabled={false}
             ItemSeparatorComponent={() => <View style={styles.separator} />}
           />
@@ -173,53 +334,42 @@ const OrderDetails = ({ route, navigation }) => {
         
         <View style={styles.sectionCard}>
           <Text style={styles.sectionTitle}>Order Summary</Text>
-          <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Subtotal</Text>
-            <Text style={styles.summaryValue}>${orderDetails.total.toFixed(2)}</Text>
-          </View>
-          <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Shipping</Text>
-            <Text style={styles.summaryValue}>Free</Text>
-          </View>
-          <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Tax</Text>
-            <Text style={styles.summaryValue}>Included</Text>
-          </View>
-          <View style={styles.separatorFull} />
-          <View style={styles.summaryRow}>
-            <Text style={styles.totalLabel}>Total</Text>
-            <Text style={styles.totalValue}>${orderDetails.total.toFixed(2)}</Text>
-          </View>
+          {/* Calculate all totals once for efficiency */}
+          {(() => {
+            const { originalTotal, discountedTotal, saved } = calculateOrderTotals();
+            const hasSavings = saved > 0;
+            
+            return (
+              <>
+                <View style={styles.summaryRow}>
+                  <Text style={styles.summaryLabel}>Subtotal (Original)</Text>
+                  <Text style={styles.summaryValue}>{formatCurrency(originalTotal)}</Text>
+                </View>
+                
+                {hasSavings && (
+                  <View style={styles.summaryRow}>
+                    <Text style={styles.discountLabel}>Discount Savings</Text>
+                    <Text style={styles.discountValue}>-{formatCurrency(saved)}</Text>
+                  </View>
+                )}
+                
+                <View style={styles.separatorFull} />
+                
+                <View style={styles.summaryRow}>
+                  <Text style={styles.totalLabel}>Total</Text>
+                  <Text style={styles.totalValue}>{formatCurrency(discountedTotal)}</Text>
+                </View>
+                
+                {hasSavings && (
+                  <View style={styles.savingsContainer}>
+                    <Text style={styles.savingsText}>You saved {formatCurrency(saved)} on this order!</Text>
+                  </View>
+                )}
+              </>
+            );
+          })()}
         </View>
         
-        <View style={styles.actionsContainer}>
-          {orderDetails.status === 'delivered' && !orderDetails.reviewed && (
-            <TouchableOpacity 
-              style={styles.actionButton}
-              onPress={() => navigation.navigate('WriteReview', { 
-                order: orderDetails
-              })}
-            >
-              <Text style={styles.actionButtonText}>Write a Review</Text>
-            </TouchableOpacity>
-          )}
-          
-          {(orderDetails.status === 'processing' || orderDetails.status === 'shipped') && (
-            <TouchableOpacity 
-              style={[styles.actionButton, styles.trackButton]}
-              onPress={() => Alert.alert('Coming Soon', 'Order tracking will be available in the next update.')}
-            >
-              <Text style={styles.trackButtonText}>Track Order</Text>
-            </TouchableOpacity>
-          )}
-          
-          <TouchableOpacity 
-            style={[styles.actionButton, styles.supportButton]}
-            onPress={() => Alert.alert('Coming Soon', 'Order support will be available in the next update.')}
-          >
-            <Text style={styles.supportButtonText}>Get Support</Text>
-          </TouchableOpacity>
-        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -237,6 +387,12 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  loadingText: {
+    ...FONTS.medium,
+    fontSize: SIZES.medium,
+    marginTop: SIZES.small,
+    textAlign: 'center',
   },
   errorContainer: {
     flex: 1,
@@ -316,9 +472,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     paddingVertical: SIZES.small,
   },
+  productImage: {
+    width: 60,
+    height: 90,
+    borderRadius: 4,
+    marginRight: SIZES.small,
+  },
   productImagePlaceholder: {
-    width: 50,
-    height: 50,
+    width: 60,
+    height: 90,
     borderRadius: 4,
     backgroundColor: COLORS.lightGrey,
     justifyContent: 'center',
@@ -333,6 +495,7 @@ const styles = StyleSheet.create({
   productInfo: {
     flex: 1,
     marginRight: SIZES.small,
+    justifyContent: 'center',
   },
   productTitle: {
     ...FONTS.medium,
@@ -344,6 +507,22 @@ const styles = StyleSheet.create({
     fontSize: SIZES.small,
     color: COLORS.onBackground,
     marginBottom: 2,
+  },
+  priceContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  originalPrice: {
+    ...FONTS.regular,
+    fontSize: SIZES.small,
+    color: COLORS.onBackground,
+    textDecorationLine: 'line-through',
+    marginRight: SIZES.small / 2,
+  },
+  discountPrice: {
+    ...FONTS.medium,
+    fontSize: SIZES.small,
+    color: COLORS.success,
   },
   productQuantity: {
     ...FONTS.regular,
@@ -395,6 +574,24 @@ const styles = StyleSheet.create({
     ...FONTS.bold,
     fontSize: SIZES.large,
     color: COLORS.primary,
+  },
+  discountLabel: {
+    ...FONTS.regular,
+    fontSize: SIZES.medium,
+    color: COLORS.success,
+  },
+  discountValue: {
+    ...FONTS.medium,
+    fontSize: SIZES.medium,
+    color: COLORS.success,
+  },
+  savingsContainer: {
+    marginTop: SIZES.small,
+  },
+  savingsText: {
+    ...FONTS.medium,
+    fontSize: SIZES.small,
+    color: COLORS.success,
   },
   actionsContainer: {
     marginVertical: SIZES.medium,
