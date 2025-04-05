@@ -17,21 +17,23 @@ done - save cart contents on SQLite before checkout. get items when app is opene
 
 ## Term Test Transaction: 35pts
 done - completed transaction. 10pts
-- update status of transaction. 5pts
+done - update status of transaction. 5pts
 - send a push notification after the update. 10pts
 - click on the notification to view the order details 10pts
 
 ## Quiz 1: Search/Filters 15pts
 - search function. filter products/service search results by price range 10pts
-- search function. filter products/service search results by category and price range 10pts
+done - search function. filter products/service search results by category and price range 10pts
 
 ## Quiz 2: Notifications 
 - send push notifications about product promotions/discount. 10pts
 - view the details of the notification. 5pts
 
 ## Quiz 3: Apply REDUX on Order, Product, Review/Ratings Function 15pts
+- done
 
 ## Unit 1: User Interface (with Drawer) Design 20pts 
+- done
 
 ## Unit 2: Node Backend Functions, JWT Tokens Stored on SQLite or Expo Secure Store.
 - Notification Push Token Saved on User Model. Update/Remove Stale Tokens 20pts
