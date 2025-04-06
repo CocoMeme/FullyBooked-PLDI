@@ -14,7 +14,7 @@ import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { saveNotification } from '../services/notificationsDB';
+import { saveNotification, saveSaleBook, markUserNotifiedAboutSaleBook } from '../services/notificationsDB';
 import axios from 'axios';
 import baseURL from '../assets/common/baseurl';
 import { getOrderById } from '../redux/actions/orderActions';
@@ -585,3 +585,198 @@ export async function sendOrderCheckoutNotification(order) {
     return false;
   }
 }
+
+/**
+ * Send a notification to all users about a book on sale
+ * @param {Object} book - The book object with sale information
+ * @returns {Object} Result of the notification sending operation
+ */
+export const sendBookSaleNotification = async (book) => {
+  try {
+    console.log('Starting book sale notification for:', book.title);
+
+    if (!book || book.tag !== 'Sale' || !book.discountPrice) {
+      console.log('Not a valid sale book to notify for:', book.title);
+      return;
+    }
+
+    // Always save the sale book to the database for future notifications
+    // This will ensure users who log in later will be notified
+    try {
+      await saveSaleBook(book);
+      console.log('Sale book saved to database for future notifications');
+    } catch (dbError) {
+      console.error('Error saving sale book to database:', dbError);
+      // Continue with the rest of the function - we still want to send notifications to online users
+    }
+
+    // Format prices for display
+    const originalPrice = typeof book.price === 'number' ? book.price.toFixed(2) : book.price;
+    const salePrice = typeof book.discountPrice === 'number' ? book.discountPrice.toFixed(2) : book.discountPrice;
+    
+    // Calculate discount percentage
+    const discountPercent = Math.round(((book.price - book.discountPrice) / book.price) * 100);
+    
+    // Create an attention-grabbing notification
+    const title = `${book.title} is now on sale!`;
+    const body = `Save ${discountPercent}%! Now ₱${salePrice} (was ₱${originalPrice})`;
+    
+    // Prepare notification data that will allow navigation to book details
+    const notificationData = {
+      type: 'BOOK_SALE',
+      bookId: book._id,
+      bookTitle: book.title,
+      author: book.author,
+      coverImage: book.coverImage?.[0] || null,
+      price: book.price,
+      discountPrice: book.discountPrice,
+      screen: 'BookDetails', // This will be used for navigation when notification is tapped
+      notificationId: Math.random().toString(36).substring(2, 15)
+    };
+
+    // Get all users to notify
+    const users = await getAllUsers();
+    console.log(`Sending book sale notifications to ${users.length} users`);
+
+    // Send notification to each user
+    const successfulNotifications = [];
+    const failedNotifications = [];
+
+    for (const user of users) {
+      try {
+        console.log(`Processing book sale notification for user:`, user.firebaseUid);
+        
+        // Save to local database with specific type
+        await saveNotification(
+          user.firebaseUid, 
+          title, 
+          body, 
+          notificationData, 
+          'BOOK_SALE'
+        );
+        
+        // Schedule push notification
+        await Notifications.scheduleNotificationAsync({
+          content: {
+            title,
+            body,
+            data: notificationData,
+            sound: true,
+            badge: 1,
+          },
+          trigger: null, // Display immediately
+        });
+        
+        // Mark this user as notified about this sale book
+        await markUserNotifiedAboutSaleBook(book._id, user.firebaseUid);
+        
+        successfulNotifications.push(user.firebaseUid);
+      } catch (error) {
+        console.error(`Error sending book sale notification to user ${user.firebaseUid}:`, error);
+        failedNotifications.push({ userId: user.firebaseUid, error: error.message });
+      }
+    }
+
+    console.log('Book sale notifications completed:', {
+      successful: successfulNotifications.length,
+      failed: failedNotifications.length
+    });
+
+    return {
+      successful: successfulNotifications,
+      failed: failedNotifications
+    };
+  } catch (error) {
+    console.error('Error in sendBookSaleNotification:', error);
+    throw error;
+  }
+};
+
+/**
+ * Check for and send notifications about sale books that the user hasn't been notified about yet
+ * This should be called when a user logs in
+ * @param {string} userId - The user's ID
+ * @returns {Promise<boolean>} - Whether any notifications were sent
+ */
+export const checkPendingSaleNotifications = async (userId) => {
+  try {
+    if (!userId) {
+      console.log('No user ID provided for checking pending sale notifications');
+      return false;
+    }
+    
+    console.log(`Checking pending sale notifications for user: ${userId}`);
+    
+    // Get unnotified sale books from the database
+    const { getUnnotifiedSaleBooks } = await import('../services/notificationsDB');
+    const saleBooks = await getUnnotifiedSaleBooks(userId);
+    
+    console.log(`Found ${saleBooks.length} unnotified sale books for user ${userId}`);
+    
+    if (saleBooks.length === 0) {
+      return false;
+    }
+    
+    // Process each sale book and send notification
+    for (const book of saleBooks) {
+      try {
+        // Format prices for display
+        const originalPrice = book.price.toFixed(2);
+        const salePrice = book.discount_price.toFixed(2);
+        
+        // Calculate discount percentage
+        const discountPercent = Math.round(((book.price - book.discount_price) / book.price) * 100);
+        
+        // Create notification content
+        const title = `${book.book_title} is on sale!`;
+        const body = `Save ${discountPercent}%! Now ₱${salePrice} (was ₱${originalPrice})`;
+        
+        // Prepare notification data
+        const notificationData = {
+          type: 'BOOK_SALE',
+          bookId: book.book_id,
+          bookTitle: book.book_title,
+          price: book.price,
+          discountPrice: book.discount_price,
+          screen: 'BookDetails', // Used for navigation when tapped
+          notificationId: Math.random().toString(36).substring(2, 15)
+        };
+        
+        // Save to local notifications database
+        await saveNotification(
+          userId,
+          title,
+          body,
+          notificationData,
+          'BOOK_SALE'
+        );
+        
+        // Schedule push notification with a small delay to avoid overwhelming the user
+        // with multiple notifications at once
+        await Notifications.scheduleNotificationAsync({
+          content: {
+            title,
+            body,
+            data: notificationData,
+            sound: true,
+            badge: 1,
+          },
+          trigger: { seconds: 2 * (saleBooks.indexOf(book) + 1) }, // Stagger notifications by 2 seconds each
+        });
+        
+        // Mark as notified
+        await markUserNotifiedAboutSaleBook(book.book_id, userId);
+        
+        console.log(`Pending sale notification sent for book ${book.book_title} to user ${userId}`);
+      } catch (error) {
+        console.error(`Error sending pending sale notification for book ${book.book_id}:`, error);
+        // Continue with other books even if one fails
+      }
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('Error checking pending sale notifications:', error);
+    return false;
+  }
+};

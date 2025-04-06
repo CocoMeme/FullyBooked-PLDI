@@ -6,16 +6,6 @@ import { auth } from './firebaseConfig';
 import baseURL from '../assets/common/baseurl';
 import { storeToken } from '../utils/secureStorage';
 
-// Remove all direct references to SecureStore
-// Use AsyncStorage only to avoid the native module error
-
-// Ensure GoogleSignin is configured
-GoogleSignin.configure({
-  webClientId: '965289265275-00crng1jcruvnq9cfk51ls30qs0tt4vt.apps.googleusercontent.com',
-  offlineAccess: true,
-  scopes: ['profile', 'email'],
-});
-
 /**
  * Sign in with Google and handle Firebase and backend authentication.
  * @returns {Promise<Object>} User data or error
@@ -91,6 +81,22 @@ export const signInWithGoogle = async () => {
         // Store token using utility function
         await storeToken(backendResponse.data.token);
 
+        // Check and send notifications for any books on sale that the user hasn't been notified about
+        try {
+          // Import dynamically to avoid circular dependencies
+          const { checkPendingSaleNotifications } = await import('../utils/pushNotifications');
+          
+          // Use the user ID from the data
+          const userId = userData.id;
+          if (userId) {
+            console.log("Checking for pending sale notifications for Google user:", userId);
+            await checkPendingSaleNotifications(userId);
+          }
+        } catch (notifError) {
+          console.error("Error checking pending sale notifications:", notifError);
+          // Don't let notification errors affect the login process
+        }
+        
         console.log('Google Sign-In and backend sync successful:', userData);
         return userData;
       } else {

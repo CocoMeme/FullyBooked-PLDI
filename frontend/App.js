@@ -100,37 +100,60 @@ export default function App() {
         if (data) {
           console.log('Notification data:', data);
           
-          // Parse notification for NotificationDetails screen
-          const notificationData = {
-            id: data.notificationId,
-            title: response.notification.request.content.title,
-            body: response.notification.request.content.body,
-            data: data,
-            createdAt: new Date().toISOString(),
-            isRead: false
-          };
-          
-          setTimeout(() => {
-            // Use a direct navigation path to ensure navigation works properly
-            if (navigationRef.current) {
-              try {
-                console.log('Attempting navigation to NotificationDetails with navigationRef');
-                
-                // First navigate to the Notifications tab
-                navigationRef.current.navigate('CustomerRoot', {
-                  screen: 'Notifications',
-                  params: {
-                    screen: 'NotificationDetails',
-                    params: { notification: notificationData }
-                  }
-                });
-              } catch (navError) {
-                console.error('Navigation error:', navError);
+          // Handle different notification types
+          if (data.type === 'BOOK_SALE' && data.bookId) {
+            // For book sale notifications, navigate directly to BookDetails
+            setTimeout(() => {
+              if (navigationRef.current) {
+                try {
+                  console.log('Navigating to BookDetails for book:', data.bookId);
+                  // Navigate to home tab first, then to BookDetails
+                  navigationRef.current.navigate('CustomerRoot', {
+                    screen: 'Home',
+                    params: {
+                      screen: 'BookDetails',
+                      params: { bookId: data.bookId }
+                    }
+                  });
+                } catch (navError) {
+                  console.error('Navigation error:', navError);
+                }
               }
-            } else {
-              console.warn('Navigation ref is not ready yet');
-            }
-          }, 500); // Increased delay to ensure navigation is ready
+            }, 500);
+          } else {
+            // For other notification types (orders, etc.)
+            // Parse notification for NotificationDetails screen
+            const notificationData = {
+              id: data.notificationId,
+              title: response.notification.request.content.title,
+              body: response.notification.request.content.body,
+              data: data,
+              createdAt: new Date().toISOString(),
+              isRead: false
+            };
+            
+            setTimeout(() => {
+              // Use a direct navigation path to ensure navigation works properly
+              if (navigationRef.current) {
+                try {
+                  console.log('Attempting navigation to NotificationDetails with navigationRef');
+                  
+                  // First navigate to the Notifications tab
+                  navigationRef.current.navigate('CustomerRoot', {
+                    screen: 'Notifications',
+                    params: {
+                      screen: 'NotificationDetails',
+                      params: { notification: notificationData }
+                    }
+                  });
+                } catch (navError) {
+                  console.error('Navigation error:', navError);
+                }
+              } else {
+                console.warn('Navigation ref is not ready yet');
+              }
+            }, 500); // Increased delay to ensure navigation is ready
+          }
         }
       });
       

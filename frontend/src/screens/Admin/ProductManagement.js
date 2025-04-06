@@ -21,6 +21,7 @@ import { COLORS, FONTS, SIZES } from '../../constants/theme';
 import AuthGlobal from '../../context/store/AuthGlobal';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Picker } from '@react-native-picker/picker';
+import { sendBookSaleNotification } from '../../utils/pushNotifications';
 
 const ProductManagement = ({ route, navigation }) => {
   const dispatch = useDispatch();
@@ -155,8 +156,20 @@ const ProductManagement = ({ route, navigation }) => {
         discountPrice: newBook.discountPrice ? parseFloat(newBook.discountPrice) : undefined
       };
       
-      await dispatch(createBook(bookDataToSend, token));
+      const result = await dispatch(createBook(bookDataToSend, token));
       setModalVisible(false);
+      
+      // Check if this is a book on sale and send notification
+      if (result?.book && result.book.tag === 'Sale' && result.book.discountPrice) {
+        try {
+          console.log('Sending sale notification for new book:', result.book.title);
+          await sendBookSaleNotification(result.book);
+        } catch (notifError) {
+          console.error('Failed to send sale notification:', notifError);
+          // Don't show error to user, just log it - book was still created successfully
+        }
+      }
+      
       setNewBook({
         title: '',
         author: '',
@@ -202,8 +215,20 @@ const ProductManagement = ({ route, navigation }) => {
         discountPrice: selectedBook.discountPrice ? parseFloat(selectedBook.discountPrice) : undefined
       };
       
-      await dispatch(updateBook(selectedBook._id, bookDataToSend, token));
+      const result = await dispatch(updateBook(selectedBook._id, bookDataToSend, token));
       setEditModalVisible(false);
+      
+      // Check if this is a book on sale and send notification
+      if (result?.book && result.book.tag === 'Sale' && result.book.discountPrice) {
+        try {
+          console.log('Sending sale notification for updated book:', result.book.title);
+          await sendBookSaleNotification(result.book);
+        } catch (notifError) {
+          console.error('Failed to send sale notification:', notifError);
+          // Don't show error to user, just log it - book was still updated successfully
+        }
+      }
+      
       setSelectedBook(null);
       Alert.alert('Success', 'Book updated successfully');
     } catch (error) {

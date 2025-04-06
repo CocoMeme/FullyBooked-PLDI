@@ -1,13 +1,15 @@
 import * as SQLite from 'expo-sqlite';
+import { initAllTables } from './notificationsDB';
 
 let db = null;
 
 export const initDatabase = async () => {
   try {
+    // Initialize the main cart database
     if (!db) {
-      console.log('Opening database...');
+      console.log('Opening cart database...');
       db = await SQLite.openDatabaseAsync('cartdb.db');
-      console.log('Database opened successfully', db);
+      console.log('Cart database opened successfully', db);
 
       // First create the table if it doesn't exist (with original schema)
       await db.execAsync(`
@@ -22,9 +24,19 @@ export const initDatabase = async () => {
           timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
         );
       `);
-      console.log('Database initialized successfully');
-      return db;
+      console.log('Cart database initialized successfully');
     }
+    
+    // Initialize the notifications database and all its tables
+    try {
+      console.log('Initializing notification database tables...');
+      await initAllTables();
+      console.log('Notification database tables initialized successfully');
+    } catch (notifError) {
+      console.error('Error initializing notification database tables:', notifError);
+      // Continue with the app initialization even if notification tables fail
+    }
+    
     return db;
   } catch (error) {
     console.error('Database initialization error:', error);

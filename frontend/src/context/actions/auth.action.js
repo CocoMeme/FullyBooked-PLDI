@@ -65,6 +65,22 @@ export const loginUser = (user, dispatch) => {
                     const decoded = jwtDecode(token);
                     dispatch(setCurrentUser(decoded, userData));
                     
+                    // Check and send notifications for any books on sale that the user hasn't been notified about
+                    // Import dynamically to avoid circular dependencies
+                    const { checkPendingSaleNotifications } = await import('../../utils/pushNotifications');
+                    
+                    // Use the user ID from the data or the decoded token
+                    const userId = userData.id || decoded.id;
+                    if (userId) {
+                      console.log("Checking for pending sale notifications for user:", userId);
+                      try {
+                        await checkPendingSaleNotifications(userId);
+                      } catch (notifError) {
+                        console.error("Error checking pending sale notifications:", notifError);
+                        // Don't let notification errors affect the login process
+                      }
+                    }
+                    
                     Toast.show({
                         type: "success",
                         text1: "Login Successful",
