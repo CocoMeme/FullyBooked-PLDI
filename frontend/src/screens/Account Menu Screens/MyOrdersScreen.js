@@ -90,15 +90,25 @@ const MyOrdersScreen = ({ navigation }) => {
     }
   };
 
-  // Make sure we have the user ID for filtering
+  // Make sure we have the user ID for filtering - improved with better logging
+  console.log('AuthGlobal context structure:', {
+    hasStateUser: !!context?.stateUser,
+    stateUserKeys: context?.stateUser ? Object.keys(context.stateUser) : [],
+    userKeys: context?.stateUser?.user ? Object.keys(context.stateUser.user) : []
+  });
+  
+  // Extract user ID, trying all possible locations where it could be stored
   const userId = context?.stateUser?.user?.userId || 
                 context?.stateUser?.user?.id || 
-                context?.stateUser?.user?._id;
+                context?.stateUser?.user?._id ||
+                context?.stateUser?.user?.sub;
+                
+  console.log('Extracted userId in MyOrdersScreen:', userId);
 
   const renderTabContent = () => {
     if (loading || retrying) {
       return (
-        <View style={styles.loadingContainer}>
+        <View style={styles.centerContainer}>
           <ActivityIndicator size="large" color={COLORS.primary} />
           <Text style={styles.loadingText}>
             {retrying ? 'Retrying...' : 'Loading orders...'}
@@ -109,7 +119,7 @@ const MyOrdersScreen = ({ navigation }) => {
 
     if (error) {
       return (
-        <View style={styles.errorContainer}>
+        <View style={styles.centerContainer}>
           <Text style={styles.errorText}>{error}</Text>
           <TouchableOpacity 
             onPress={() => {
@@ -133,10 +143,19 @@ const MyOrdersScreen = ({ navigation }) => {
         );
         return <ToReceive orders={pendingOrders} navigation={navigation} />;
       case 'toReview':
+        // Pass the user ID from auth state AND from order data if available
+        const userIdFromOrder = orders.length > 0 ? orders[0]?.user : null;
+        const effectiveUserId = userId || userIdFromOrder;
+        
+        console.log('Passing userId to ToReview:', effectiveUserId);
+        if (!effectiveUserId) {
+          console.warn('Warning: No user ID available for ToReview component');
+        }
+        
         return <ToReview 
-          orders={orders.filter(order => order.status === 'Delivered')} 
+          orders={orders} 
           navigation={navigation} 
-          userId={userId}
+          userId={effectiveUserId}
         />;
       default:
         return <OrderHistory orders={orders} navigation={navigation} />;
@@ -176,9 +195,8 @@ const MyOrdersScreen = ({ navigation }) => {
         </TouchableOpacity>
       </View>
       
-      <View style={styles.contentContainer}>
-        {renderTabContent()}
-      </View>
+      {/* Removed the extra contentContainer wrapper */}
+      {renderTabContent()}
     </SafeAreaView>
   );
 };
@@ -227,68 +245,17 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: 'bold',
   },
-  contentContainer: {
-    flexGrow: 1,
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    margin: SIZES.small,
-    padding: SIZES.medium,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-      },
-      android: {
-        elevation: 3,
-      },
-    }),
-  },
-  loadingContainer: {
+  // Replaced contentContainer with centerContainer for loading/error states
+  centerContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#fff',
-    borderRadius: 8,
     margin: SIZES.small,
-    padding: SIZES.medium,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-      },
-      android: {
-        elevation: 3,
-      },
-    }),
   },
   loadingText: {
     marginTop: SIZES.small,
     fontSize: SIZES.medium,
     color: COLORS.onBackground,
-  },
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    margin: SIZES.small,
-    padding: SIZES.medium,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-      },
-      android: {
-        elevation: 3,
-      },
-    }),
   },
   errorText: {
     color: COLORS.error,

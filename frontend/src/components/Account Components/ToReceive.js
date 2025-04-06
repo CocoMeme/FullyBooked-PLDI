@@ -234,6 +234,7 @@ const ToReceive = ({ orders, navigation }) => {
 
 const styles = StyleSheet.create({
   listContainer: {
+    padding: SIZES.small,
     paddingBottom: SIZES.extra_large,
   },
   loadingContainer: {

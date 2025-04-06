@@ -22,12 +22,22 @@ const ToReview = ({ orders, navigation, userId }) => {
     console.log('ToReview - All orders received:', orders.length);
     console.log('ToReview - Current userId:', userId);
     
+    // Check if userId is defined before filtering
+    if (!userId) {
+      console.log('ToReview - userId is undefined, cannot filter orders');
+      setDeliveredOrders([]);
+      return;
+    }
+    
     // Filter orders here instead of at component level
     const filteredOrders = orders.filter(order => {
       const orderUser = String(order.user);
       const currentUserId = String(userId);
       
-      const isDelivered = order.status === 'Delivered';
+      // Case-insensitive status comparison
+      const isDelivered = 
+        order.status?.toLowerCase() === 'delivered' || 
+        order.status === 'Delivered';
       const isUsersOrder = orderUser === currentUserId;
       
       console.log(`Order ${order._id} - Status: ${order.status}, User: ${orderUser}, CurrentUser: ${currentUserId}`);
@@ -251,13 +261,13 @@ const ToReview = ({ orders, navigation, userId }) => {
 
 const styles = StyleSheet.create({
   listContainer: {
+    padding: SIZES.small,
     paddingBottom: SIZES.extra_large,
   },
   loaderContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: SIZES.extra_large,
   },
   loadingText: {
     ...FONTS.medium,

@@ -10,12 +10,9 @@ const isEmulator = Constants.executionEnvironment === 'storeClient';
 
 if (Platform.OS === 'android') {
   if (isEmulator) {
-    // Try multiple IP options for emulators
-    baseURL = 'http://10.0.2.2:3000/api/'; // Standard Android emulator IP
-    // baseURL = 'http://192.168.1.66:3000/api/';
+    baseURL = 'http://192.168.1.66:3000/api/'; 
   } else {
-    // Physical device - use your actual machine IP
-    baseURL = 'http://192.168.1.253:3000/api/'; // Joey's local IP address
+    baseURL = 'http://192.168.1.66:3000/api/';
   }
 } else if (Platform.OS === 'ios') {
   if (isEmulator) {

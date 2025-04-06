@@ -100,12 +100,14 @@ const OrderHistory = ({ orders, navigation }) => {
 
 const styles = StyleSheet.create({
   listContainer: {
+    padding: SIZES.small,
     paddingBottom: SIZES.large,
   },
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    padding: SIZES.medium,
   },
   noOrdersText: {
     ...FONTS.medium,
