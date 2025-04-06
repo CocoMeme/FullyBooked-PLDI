@@ -11,6 +11,11 @@ const reviewSchema = new mongoose.Schema({
     ref: 'User',
     required: true,
   },
+  order: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Order',
+    default: null
+  },
   rating: {
     type: Number,
     required: true,
@@ -30,5 +35,8 @@ const reviewSchema = new mongoose.Schema({
     default: Date.now,
   },
 });
+
+// Add compound index to prevent duplicate reviews
+reviewSchema.index({ user: 1, bookId: 1 }, { unique: true });
 
 module.exports = mongoose.model('Review', reviewSchema);

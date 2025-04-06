@@ -9,6 +9,7 @@ export const submitReview = (reviewData) => async (dispatch) => {
     const response = await api.post(`/reviews/${reviewData.bookId}`, {
       rating: reviewData.rating,
       comment: reviewData.comment,
+      orderId: reviewData.orderId // Include orderId in the request
     });
 
     dispatch({
@@ -65,6 +66,7 @@ export const updateReview = (reviewData) => async (dispatch) => {
     const response = await api.put(`/reviews/${reviewData.reviewId}`, {
       rating: reviewData.rating,
       comment: reviewData.comment,
+      orderId: reviewData.orderId // Include orderId in the request
     });
 
     dispatch({

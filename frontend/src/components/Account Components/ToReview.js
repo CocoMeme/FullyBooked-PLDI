@@ -14,6 +14,7 @@ import baseURL from '../../assets/common/baseurl';
 
 const ToReview = ({ orders, navigation, userId }) => {
   const [booksDetails, setBooksDetails] = useState({});
+  const [reviewsData, setReviewsData] = useState({});
   const [loading, setLoading] = useState(true);
   const [deliveredOrders, setDeliveredOrders] = useState([]);
 
@@ -112,6 +113,55 @@ const ToReview = ({ orders, navigation, userId }) => {
     fetchBooksDetails();
   }, [deliveredOrders]); // Only depends on finalized deliveredOrders state
 
+  // Additional useEffect to fetch user's reviews for these books
+  useEffect(() => {
+    const fetchUserReviews = async () => {
+      if (!userId || deliveredOrders.length === 0 || Object.keys(booksDetails).length === 0) {
+        return;
+      }
+      
+      try {
+        // Get all book IDs from the delivered orders
+        const bookIds = new Set();
+        deliveredOrders.forEach(order => {
+          order.items.forEach(item => {
+            if (item.book) {
+              const bookId = typeof item.book === 'object' ? item.book._id : item.book;
+              bookIds.add(String(bookId));
+            }
+          });
+        });
+        
+        // Fetch reviews for each book by this user
+        const fetchedReviews = {};
+        await Promise.all(
+          Array.from(bookIds).map(async (bookId) => {
+            try {
+              const response = await api.get(`/reviews/user/${userId}/book/${bookId}`);
+              
+              // Check if the review exists based on the success flag
+              if (response.data && response.data.success && response.data.review) {
+                fetchedReviews[bookId] = response.data.review;
+                console.log(`Found review for book ${bookId}:`, response.data.review);
+              } else {
+                console.log(`No review exists for book ${bookId}`);
+              }
+            } catch (error) {
+              // Log errors but continue - we don't want to break the UI for one failed request
+              console.log(`Error fetching review for book ${bookId}:`, error.message);
+            }
+          })
+        );
+        
+        setReviewsData(fetchedReviews);
+      } catch (error) {
+        console.error('Error fetching user reviews:', error);
+      }
+    };
+
+    fetchUserReviews();
+  }, [userId, deliveredOrders, booksDetails]);
+
   // Function to format date to a readable format
   const formatDate = (dateString) => {
     const options = { year: 'numeric', month: 'short', day: 'numeric' };
@@ -120,36 +170,55 @@ const ToReview = ({ orders, navigation, userId }) => {
 
   // Function to handle review button press
   const handleReviewPress = (order, item) => {
-    // Get the book ID consistently regardless of format
     const bookId = typeof item.book === 'object' ? item.book._id : item.book;
     const bookIdString = String(bookId);
-    
-    // Look up book details using the string ID
     const bookDetails = booksDetails[bookIdString] || {};
-    
-    // Check if the item has already been reviewed
     const isReviewed = item.isReviewed || false;
-    
-    // Navigate to the appropriate screen based on review status
+
     if (isReviewed) {
-      // If already reviewed, navigate to edit review screen
-      navigation.navigate('EditReview', { 
-        product: {
-          _id: bookIdString,
-          title: bookDetails.title || 'Unknown Book',
-        },
-        orderId: order._id
+      // Navigate to EditReview by explicitly targeting the Account stack
+      navigation.navigate('Account', {
+        screen: 'EditReview',
+        params: {
+          product: {
+            _id: bookIdString,
+            title: bookDetails.title || 'Unknown Book'
+          },
+          orderId: order._id
+        }
       });
     } else {
-      // If not reviewed, navigate to write review screen
-      navigation.navigate('WriteReview', { 
-        product: {
-          _id: bookIdString,
-          title: bookDetails.title || 'Unknown Book',
-        },
-        orderId: order._id
+      // Navigate to WriteReview similarly
+      navigation.navigate('Account', {
+        screen: 'WriteReview',
+        params: {
+          product: {
+            _id: bookIdString,
+            title: bookDetails.title || 'Unknown Book'
+          },
+          orderId: order._id
+        }
       });
     }
+  };
+
+  // Helper function to render rating stars
+  const renderRatingStars = (rating) => {
+    return (
+      <View style={styles.ratingStars}>
+        {[1, 2, 3, 4, 5].map((star) => (
+          <Text
+            key={star}
+            style={[
+              styles.starIcon,
+              star <= rating ? styles.filledStar : styles.emptyStar
+            ]}
+          >
+            ★
+          </Text>
+        ))}
+      </View>
+    );
   };
 
   // Function to render each product item within an order
@@ -184,6 +253,9 @@ const ToReview = ({ orders, navigation, userId }) => {
     const isReviewed = item.isReviewed || false;
     const buttonText = isReviewed ? "Edit" : "Rate";
     
+    // Get the review if it exists
+    const review = reviewsData[bookIdString];
+    
     return (
       <View style={styles.productContainer}>
         <View style={styles.productInfo}>
@@ -208,16 +280,26 @@ const ToReview = ({ orders, navigation, userId }) => {
             <Text style={styles.productQuantity}>
               Qty: {item.quantity} × ₱{bookPrice.toFixed(2)}
             </Text>
+            
+            {/* Show the review if it exists */}
+            {review && (
+              <View style={styles.reviewPreview}>
+                {renderRatingStars(review.rating)}
+                <Text style={styles.reviewComment} numberOfLines={2}>
+                  "{review.comment}"
+                </Text>
+              </View>
+            )}
           </View>
+
+          <TouchableOpacity 
+            style={styles.reviewButton}
+            onPress={() => handleReviewPress(order, item)}
+            disabled={!bookDetails._id}
+          >
+            <Text style={styles.reviewButtonText}>{buttonText}</Text>
+          </TouchableOpacity>
         </View>
-        
-        <TouchableOpacity 
-          style={styles.reviewButton}
-          onPress={() => handleReviewPress(order, item)}
-          disabled={!bookDetails._id}
-        >
-          <Text style={styles.reviewButtonText}>{buttonText}</Text>
-        </TouchableOpacity>
       </View>
     );
   };
@@ -346,8 +428,7 @@ const styles = StyleSheet.create({
   },
   productInfo: {
     flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: SIZES.small,
+    alignItems: 'flex-start',
   },
   productImage: {
     width: 50,
@@ -371,6 +452,7 @@ const styles = StyleSheet.create({
   },
   productDetails: {
     flex: 1,
+    marginRight: SIZES.small,
   },
   productTitle: {
     ...FONTS.medium,
@@ -387,12 +469,35 @@ const styles = StyleSheet.create({
     paddingVertical: SIZES.small / 2,
     paddingHorizontal: SIZES.medium,
     borderRadius: SIZES.small / 2,
-    alignSelf: 'flex-start',
+    alignSelf: 'center',
   },
   reviewButtonText: {
     ...FONTS.medium,
     fontSize: SIZES.small,
     color: '#fff',
+  },
+  reviewPreview: {
+    marginTop: SIZES.small / 2,
+  },
+  ratingStars: {
+    flexDirection: 'row',
+    marginBottom: 2,
+  },
+  starIcon: {
+    fontSize: 14,
+    marginRight: 2,
+  },
+  filledStar: {
+    color: COLORS.warning,
+  },
+  emptyStar: {
+    color: COLORS.lightGrey,
+  },
+  reviewComment: {
+    ...FONTS.regular,
+    fontSize: SIZES.small - 1,
+    fontStyle: 'italic',
+    color: COLORS.darkgray,
   },
   separator: {
     height: 1,

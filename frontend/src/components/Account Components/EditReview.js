@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import { 
   View, 
   Text, 
@@ -12,10 +12,11 @@ import {
 } from 'react-native';
 import { COLORS, FONTS, SIZES } from '../../constants/theme';
 import Header from '../Header';
-import { useDispatch, useSelector } from 'react-redux';
+import { useDispatch } from 'react-redux';
 import { updateReview } from '../../redux/actions/reviewActions';
 import axios from 'axios';
 import { api } from '../../services/api';
+import AuthGlobal from '../../context/store/AuthGlobal'; // Import AuthGlobal context
 
 const EditReview = ({ route, navigation }) => {
   const { product, orderId } = route.params;
@@ -26,17 +27,81 @@ const EditReview = ({ route, navigation }) => {
   const [submitting, setSubmitting] = useState(false);
   const [review, setReview] = useState(null);
   const [reviewId, setReviewId] = useState(null);
+  const [authCheckComplete, setAuthCheckComplete] = useState(false);
 
   const dispatch = useDispatch();
-  const user = useSelector((state) => state.auth.user);
+  
+  // Use AuthGlobal context instead of Redux for authentication
+  const context = useContext(AuthGlobal);
+  
+  // Log the entire context structure to debug
+  console.log('EditReview - Complete context structure:', JSON.stringify(context.stateUser));
+  
+  // Try multiple ways to get the userId based on how it's stored in context
+  // The most likely places are: decoded JWT token, the user object, or directly in stateUser
+  const user = context?.stateUser?.user || {};
+  const userProfile = context?.stateUser?.userProfile || {};
+  
+  // Try all possible locations for userId
+  const userId = 
+    user?.id || 
+    user?._id || 
+    user?.userId || 
+    user?.sub || // common JWT identifier
+    userProfile?.id || 
+    userProfile?._id ||
+    context?.stateUser?.id ||
+    // Extract from route params if passed
+    route.params?.userId;
+  
+  // Debug log authentication state
+  console.log('EditReview - Auth context:', context?.stateUser?.isAuthenticated);
+  console.log('EditReview - User from context:', user);
+  console.log('EditReview - Resolved userId:', userId);
 
-  // Fetch the existing review when component mounts
+  // Check authentication status
   useEffect(() => {
+    console.log('Auth check effect running, current userId:', userId);
+    
+    // If we have user data immediately, mark auth as complete
+    if (userId) {
+      console.log('User already available:', userId);
+      setAuthCheckComplete(true);
+      return;
+    }
+    
+    // Otherwise set a timeout as fallback
+    const authCheckTimer = setTimeout(() => {
+      console.log('Auth check timeout fired. Current userId:', userId);
+      setAuthCheckComplete(true);
+      setLoading(false);
+    }, 1500); // Shorter timeout (1.5s)
+
+    return () => clearTimeout(authCheckTimer);
+  }, [userId]);
+
+  // Pass userId in route params if available
+  useEffect(() => {
+    if (userId && navigation.setParams) {
+      navigation.setParams({ userId });
+    }
+  }, [userId]);
+
+  // Fetch existing review when auth is confirmed or when we have userId
+  useEffect(() => {
+    if (!userId) {
+      console.log('No userId available for fetching review');
+      if (authCheckComplete) {
+        setLoading(false);
+      }
+      return;
+    }
+
     const fetchExistingReview = async () => {
       try {
         setLoading(true);
-        // Fetch the user's review for this product
-        const response = await api.get(`/reviews/user/${user._id}/book/${product._id}`);
+        console.log(`Fetching review for product ${product._id} by user ${userId}`);
+        const response = await api.get(`/reviews/user/${userId}/book/${product._id}`);
         
         if (response.data && response.data.review) {
           const reviewData = response.data.review;
@@ -61,9 +126,14 @@ const EditReview = ({ route, navigation }) => {
     };
 
     fetchExistingReview();
-  }, [product._id, user._id]);
+  }, [authCheckComplete, userId, product._id]);
 
   const handleUpdateReview = async () => {
+    if (!userId) {
+      Alert.alert('Error', 'You must be logged in to update a review.');
+      return;
+    }
+
     if (rating === 0) {
       return Alert.alert('Error', 'Please select a rating.');
     }
@@ -75,14 +145,13 @@ const EditReview = ({ route, navigation }) => {
     try {
       setSubmitting(true);
 
-      // Dispatch action to update the review
       await dispatch(updateReview({
         reviewId,
         rating,
         comment: reviewText,
+        orderId: orderId,
       }));
 
-      // Update the order item to mark it as reviewed
       await api.patch(`/orders/${orderId}/item/${product._id}/reviewed`, {
         isReviewed: true
       });
@@ -111,6 +180,29 @@ const EditReview = ({ route, navigation }) => {
         <View style={styles.loaderContainer}>
           <ActivityIndicator size="large" color={COLORS.primary} />
           <Text style={styles.loadingText}>Loading your review...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (authCheckComplete && !userId) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <Header 
+          title="Edit Review" 
+          showBackButton={true} 
+          onBackPress={() => navigation.goBack()} 
+        />
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>
+            You need to be logged in to edit reviews.
+          </Text>
+          <TouchableOpacity 
+            style={styles.errorButton}
+            onPress={() => navigation.goBack()}
+          >
+            <Text style={styles.errorButtonText}>Go Back</Text>
+          </TouchableOpacity>
         </View>
       </SafeAreaView>
     );
@@ -324,6 +416,30 @@ const styles = StyleSheet.create({
     ...FONTS.bold,
     fontSize: SIZES.medium,
     color: '#fff',
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: SIZES.extra_large,
+  },
+  errorText: {
+    ...FONTS.medium,
+    fontSize: SIZES.medium,
+    color: COLORS.error || 'red',
+    textAlign: 'center',
+    marginBottom: SIZES.large,
+  },
+  errorButton: {
+    backgroundColor: COLORS.primary,
+    paddingVertical: SIZES.small,
+    paddingHorizontal: SIZES.large,
+    borderRadius: SIZES.small,
+  },
+  errorButtonText: {
+    ...FONTS.bold,
+    color: '#fff',
+    fontSize: SIZES.medium,
   },
 });
 

@@ -3,7 +3,7 @@ const User = require('../models/user.model');
 
 exports.placeOrder = async (req, res) => {
   try {
-    const { id: userId, role } = req.user; // Get userId and role from the verified token
+    const { _id: userId, role } = req.user; // Get userId and role from the verified token
     const { products, paymentMethod } = req.body;
 
     // Debug log to check the user's role
@@ -62,11 +62,11 @@ exports.getAllOrders = async (req, res) => {
 
 exports.getMyOrders = async (req, res) => {
   try {
-    if (!req.user || !req.user.id) {
+    if (!req.user || !req.user._id) {
       return res.status(401).json({ message: 'Unauthorized. User not authenticated.' });
     }
 
-    const { id: userId } = req.user;
+    const { _id: userId } = req.user;
     console.log('Fetching orders for user:', userId);
 
     // Fetch orders for the logged-in user
@@ -136,5 +136,47 @@ exports.getOrderDetails = async (req, res) => {
   } catch (error) {
     console.error('Error fetching order details:', error);
     res.status(500).json({ message: 'Server error' });
+  }
+};
+
+exports.markItemAsReviewed = async (req, res) => {
+  try {
+    const { orderId, bookId } = req.params;
+    const { isReviewed } = req.body;
+    const userId = req.user._id;
+
+    console.log(`Marking book ${bookId} as reviewed in order ${orderId}`);
+    
+    // Validate that the order exists and belongs to the user
+    const order = await Order.findOne({ 
+      _id: orderId,
+      user: userId
+    });
+
+    if (!order) {
+      return res.status(404).json({ message: 'Order not found or does not belong to this user' });
+    }
+
+    // Find the specific item in the order
+    const itemIndex = order.items.findIndex(item => 
+      String(item.book) === String(bookId)
+    );
+
+    if (itemIndex === -1) {
+      return res.status(404).json({ message: 'Item not found in this order' });
+    }
+
+    // Update the isReviewed status
+    order.items[itemIndex].isReviewed = isReviewed === true || isReviewed === 'true';
+    
+    await order.save();
+
+    res.status(200).json({ 
+      message: 'Item review status updated successfully',
+      isReviewed: order.items[itemIndex].isReviewed
+    });
+  } catch (error) {
+    console.error('Error updating item review status:', error);
+    res.status(500).json({ message: 'Failed to update item review status' });
   }
 };

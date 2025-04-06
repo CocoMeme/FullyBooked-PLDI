@@ -70,12 +70,13 @@ const WriteReview = ({ route, navigation }) => {
     try {
       setLoading(true);
 
-      // Dispatch action to submit the review
+      // Dispatch action to submit the review - now including the orderId
       await dispatch(
         submitReview({
           bookId,
           rating,
           comment: reviewText,
+          orderId: orderId, // Pass the orderId to the review action
         })
       );
 
