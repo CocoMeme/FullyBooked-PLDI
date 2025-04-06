@@ -127,14 +127,29 @@ const ToReview = ({ orders, navigation, userId }) => {
     // Look up book details using the string ID
     const bookDetails = booksDetails[bookIdString] || {};
     
-    // Navigate to the review screen with product and order information
-    navigation.navigate('WriteReview', { 
-      product: {
-        _id: bookIdString, // Pass the properly formatted book ID
-        title: bookDetails.title || 'Unknown Book', // Pass the book title
-      },
-      orderId: order._id,
-    });
+    // Check if the item has already been reviewed
+    const isReviewed = item.isReviewed || false;
+    
+    // Navigate to the appropriate screen based on review status
+    if (isReviewed) {
+      // If already reviewed, navigate to edit review screen
+      navigation.navigate('EditReview', { 
+        product: {
+          _id: bookIdString,
+          title: bookDetails.title || 'Unknown Book',
+        },
+        orderId: order._id
+      });
+    } else {
+      // If not reviewed, navigate to write review screen
+      navigation.navigate('WriteReview', { 
+        product: {
+          _id: bookIdString,
+          title: bookDetails.title || 'Unknown Book',
+        },
+        orderId: order._id
+      });
+    }
   };
 
   // Function to render each product item within an order
@@ -164,6 +179,10 @@ const ToReview = ({ orders, navigation, userId }) => {
       title: bookTitle,
       hasCover: !!bookCover
     });
+    
+    // Check if this item has already been reviewed
+    const isReviewed = item.isReviewed || false;
+    const buttonText = isReviewed ? "Edit" : "Rate";
     
     return (
       <View style={styles.productContainer}>
@@ -197,7 +216,7 @@ const ToReview = ({ orders, navigation, userId }) => {
           onPress={() => handleReviewPress(order, item)}
           disabled={!bookDetails._id}
         >
-          <Text style={styles.reviewButtonText}>Rate</Text>
+          <Text style={styles.reviewButtonText}>{buttonText}</Text>
         </TouchableOpacity>
       </View>
     );

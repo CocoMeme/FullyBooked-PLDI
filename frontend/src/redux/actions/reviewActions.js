@@ -56,3 +56,28 @@ export const fetchReviews = (bookId) => async (dispatch) => {
     throw error;
   }
 };
+
+// Update an existing review
+export const updateReview = (reviewData) => async (dispatch) => {
+  try {
+    dispatch({ type: types.UPDATE_REVIEW_REQUEST });
+
+    const response = await api.put(`/reviews/${reviewData.reviewId}`, {
+      rating: reviewData.rating,
+      comment: reviewData.comment,
+    });
+
+    dispatch({
+      type: types.UPDATE_REVIEW_SUCCESS,
+      payload: response.data.review,
+    });
+
+    return response.data;
+  } catch (error) {
+    dispatch({
+      type: types.UPDATE_REVIEW_FAILURE,
+      payload: error.response?.data?.message || 'Failed to update review',
+    });
+    throw error;
+  }
+};

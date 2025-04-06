@@ -16,24 +16,12 @@ export const initDatabase = async () => {
           product_id TEXT NOT NULL,
           product_name TEXT NOT NULL,
           product_price REAL NOT NULL,
+          discountPrice REAL, -- Reintroduce discountPrice column
           product_image TEXT,
           quantity INTEGER DEFAULT 1,
           timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
         );
       `);
-
-      // Check if discountPrice column exists, if not add it
-      try {
-        // Try to get column info
-        await db.getFirstAsync(`SELECT discountPrice FROM cart_items LIMIT 1`);
-        console.log('discountPrice column already exists');
-      } catch (error) {
-        // Column doesn't exist, add it
-        console.log('Adding discountPrice column to cart_items table');
-        await db.execAsync(`ALTER TABLE cart_items ADD COLUMN discountPrice REAL;`);
-        console.log('discountPrice column added successfully');
-      }
-
       console.log('Database initialized successfully');
       return db;
     }

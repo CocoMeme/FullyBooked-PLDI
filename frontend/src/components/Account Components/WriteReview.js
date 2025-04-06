@@ -14,10 +14,10 @@ import { COLORS, FONTS, SIZES } from '../../constants/theme';
 import Header from '../Header';
 import { useDispatch } from 'react-redux';
 import { submitReview } from '../../redux/actions/reviewActions';
-import axios from 'axios'; // Import axios for fetching book details if needed
+import { api } from '../../services/api';
 
 const WriteReview = ({ route, navigation }) => {
-  const { product, orderId, orderNumber } = route.params;
+  const { product, orderId } = route.params;
 
   const [rating, setRating] = useState(0);
   const [reviewText, setReviewText] = useState('');
@@ -37,7 +37,7 @@ const WriteReview = ({ route, navigation }) => {
   const fetchBookId = async () => {
     try {
       // Replace with your API endpoint to fetch the book details
-      const response = await axios.get(`/api/books/${product.id}`);
+      const response = await api.get(`/books/${product.id}`);
       if (response.data && response.data._id) {
         setBookId(response.data._id);
         console.log('Fetched bookId:', response.data._id);
@@ -70,7 +70,7 @@ const WriteReview = ({ route, navigation }) => {
     try {
       setLoading(true);
 
-      // Dispatch action
+      // Dispatch action to submit the review
       await dispatch(
         submitReview({
           bookId,
@@ -78,6 +78,11 @@ const WriteReview = ({ route, navigation }) => {
           comment: reviewText,
         })
       );
+
+      // Update the order item to mark it as reviewed
+      await api.patch(`/orders/${orderId}/item/${bookId}/reviewed`, {
+        isReviewed: true
+      });
 
       Alert.alert(
         'Review Submitted',
@@ -107,7 +112,7 @@ const WriteReview = ({ route, navigation }) => {
           </View>
           <View style={styles.productDetails}>
             <Text style={styles.productTitle}>{product?.title}</Text>
-            <Text style={styles.orderInfo}>Order #{orderNumber}</Text>
+            <Text style={styles.orderInfo}>Order #{orderId}</Text>
           </View>
         </View>
 
@@ -245,6 +250,11 @@ const styles = StyleSheet.create({
   },
   starFilled: {
     color: COLORS.warning,
+  },
+  ratingText: {
+    ...FONTS.medium,
+    fontSize: SIZES.medium,
+    marginTop: SIZES.small / 2,
   },
   reviewContainer: {
     backgroundColor: '#fff',

@@ -28,6 +28,20 @@ const reviewReducer = (state = initialState, action) => {
     case types.FETCH_REVIEWS_FAILURE:
       return { ...state, loading: false, error: action.payload };
       
+    case types.UPDATE_REVIEW_REQUEST:
+      return { ...state, loading: true, error: null, success: false };
+    case types.UPDATE_REVIEW_SUCCESS:
+      return { 
+        ...state, 
+        loading: false, 
+        success: true,
+        reviews: state.reviews.map(review => 
+          review._id === action.payload._id ? action.payload : review
+        )
+      };
+    case types.UPDATE_REVIEW_FAILURE:
+      return { ...state, loading: false, error: action.payload, success: false };
+      
     default:
       return state;
   }

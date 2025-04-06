@@ -41,6 +41,4 @@ done - completed transaction. 10pts
 - Program Execution 10pts
 - Project Contribution 10pts
 
-## MongoDB Connection
-mongodb+srv://fullybookedipt1:W7lQlq6JFqYcLv2t@cluster0.1uumi.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0
 

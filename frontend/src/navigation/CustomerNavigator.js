@@ -41,6 +41,10 @@ const CartStack = () => (
 const NotificationStack = () => (
   <Stack.Navigator screenOptions={{ headerShown: false }}>
     <Stack.Screen name="NotificationScreen" component={NotificationScreen} />
+    <Stack.Screen 
+      name="NotificationDetails" 
+      component={require('../components/Account Components/NotificationDetails').default} 
+    />
   </Stack.Navigator>
 );
 

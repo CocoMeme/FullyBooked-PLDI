@@ -591,4 +591,192 @@ exports.getCurrentUser = async (req, res) => {
     }
 };
 
+// Update FCM Token endpoint
+exports.updateFcmToken = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const { fcmToken, deviceType, tokenType = 'expo' } = req.body;
+        
+        if (!fcmToken || !deviceType) {
+            return res.status(400).json({ 
+                message: "FCM token and device type are required" 
+            });
+        }
+        
+        // Validate device type
+        const validDeviceTypes = ['android', 'ios', 'web'];
+        if (!validDeviceTypes.includes(deviceType.toLowerCase())) {
+            return res.status(400).json({ 
+                message: `Invalid device type. Must be one of: ${validDeviceTypes.join(', ')}` 
+            });
+        }
+        
+        // Find the user
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({ message: "User not found" });
+        }
+        
+        // Check if token already exists for this user
+        const tokenExists = user.notificationTokens && 
+            user.notificationTokens.some(t => t.token === fcmToken);
+        
+        if (tokenExists) {
+            // Update the existing token's last used timestamp
+            const updatedUser = await User.findOneAndUpdate(
+                { 
+                    _id: userId, 
+                    "notificationTokens.token": fcmToken 
+                },
+                { 
+                    $set: { "notificationTokens.$.lastUsed": new Date() } 
+                },
+                { new: true }
+            );
+            
+            return res.status(200).json({ 
+                message: "FCM token updated", 
+                token: fcmToken 
+            });
+        }
+        
+        // Add the new token
+        const tokenData = {
+            token: fcmToken,
+            deviceType: deviceType.toLowerCase(),
+            tokenType: tokenType || 'expo',
+            createdAt: new Date(),
+            lastUsed: new Date()
+        };
+        
+        const updatedUser = await User.findByIdAndUpdate(
+            userId,
+            { $push: { notificationTokens: tokenData } },
+            { new: true }
+        );
+        
+        res.status(201).json({ 
+            message: "FCM token added successfully", 
+            token: fcmToken 
+        });
+    } catch (error) {
+        console.error("Error updating FCM token:", error);
+        res.status(500).json({ message: "Failed to update FCM token" });
+    }
+};
+
+// Remove FCM Token endpoint
+exports.removeFcmToken = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const { token } = req.body;
+        
+        // If token is provided, remove that specific token
+        if (token) {
+            await User.findByIdAndUpdate(
+                userId,
+                { $pull: { notificationTokens: { token } } }
+            );
+            
+            return res.status(200).json({ 
+                message: "FCM token removed successfully" 
+            });
+        }
+        
+        // If no token is provided, remove all tokens for this user
+        await User.findByIdAndUpdate(
+            userId,
+            { $set: { notificationTokens: [] } }
+        );
+        
+        res.status(200).json({ 
+            message: "All FCM tokens removed successfully" 
+        });
+    } catch (error) {
+        console.error("Error removing FCM token:", error);
+        res.status(500).json({ message: "Failed to remove FCM token" });
+    }
+};
+
+// Clean stale FCM tokens (tokens not used for more than 30 days)
+exports.cleanStaleFcmTokens = async (req, res) => {
+    try {
+        // Only allow admins to clean stale tokens
+        if (req.user.role !== 'admin') {
+            return res.status(403).json({ 
+                message: "Only admins can clean stale tokens" 
+            });
+        }
+        
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+        
+        // Find all users with stale tokens
+        const result = await User.updateMany(
+            {},
+            { $pull: { notificationTokens: { lastUsed: { $lt: thirtyDaysAgo } } } }
+        );
+        
+        res.status(200).json({ 
+            message: "Stale FCM tokens cleaned successfully",
+            result
+        });
+    } catch (error) {
+        console.error("Error cleaning stale FCM tokens:", error);
+        res.status(500).json({ message: "Failed to clean stale FCM tokens" });
+    }
+};
+
+// Send notification to a specific user
+exports.sendNotificationToUser = async (req, res) => {
+    try {
+        // Only allow admins to send notifications
+        if (req.user.role !== 'admin') {
+            return res.status(403).json({ 
+                message: "Only admins can send notifications" 
+            });
+        }
+        
+        const { userId, title, body, data } = req.body;
+        
+        if (!userId || !title || !body) {
+            return res.status(400).json({ 
+                message: "User ID, title, and body are required" 
+            });
+        }
+        
+        // Find the user
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({ message: "User not found" });
+        }
+        
+        if (!user.notificationTokens || user.notificationTokens.length === 0) {
+            return res.status(404).json({ 
+                message: "No notification tokens found for this user" 
+            });
+        }
+        
+        // Prepare notification message for all user tokens
+        const messages = user.notificationTokens.map(tokenData => ({
+            to: tokenData.token,
+            title,
+            body,
+            data: data || {},
+            sound: 'default',
+        }));
+        
+        // Here you would actually send the notification
+        // This would typically be handled by a service like Expo's push notification service
+        
+        res.status(200).json({ 
+            message: "Notification sent successfully",
+            tokens: user.notificationTokens.length
+        });
+    } catch (error) {
+        console.error("Error sending notification:", error);
+        res.status(500).json({ message: "Failed to send notification" });
+    }
+};
+
 

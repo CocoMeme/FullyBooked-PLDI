@@ -11,7 +11,11 @@ const {
     adminCreateUser,
     getFirebaseToken,
     testEndpoint,
-    updateUserProfile
+    updateUserProfile,
+    updateFcmToken,
+    removeFcmToken,
+    cleanStaleFcmTokens,
+    sendNotificationToUser
 } = require('../controllers/user.controller');
 const verifyAdminToken = require('../middleware/verifyAdminToken');
 const { verifyToken } = require('../middleware/verifyToken');
@@ -45,11 +49,17 @@ router.get("/profile-test", verifyToken, testEndpoint);
 router.put("/profile/update", verifyToken, upload.single('avatar'), updateUserProfile);
 router.post("/profile/update", verifyToken, upload.single('avatar'), updateUserProfile);
 
+// Push notification token routes
+router.post("/update-fcm-token", verifyToken, updateFcmToken);
+router.delete("/remove-fcm-token", verifyToken, removeFcmToken);
+
 // Admin-protected routes
 router.get("/all", verifyAdminToken, getAllUsers);
 router.get("/:id", verifyAdminToken, getSingleUser);
 router.post("/create-user", verifyAdminToken, adminCreateUser);
 router.put("/update/:id", verifyAdminToken, updateUser); // Update user by ID
 router.delete("/:id", verifyAdminToken, deleteUser);
+router.post("/clean-stale-tokens", verifyAdminToken, cleanStaleFcmTokens);
+router.post("/send-notification", verifyAdminToken, sendNotificationToUser);
 
 module.exports = router;

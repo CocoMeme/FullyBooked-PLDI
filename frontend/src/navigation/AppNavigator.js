@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext, forwardRef } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { ActivityIndicator, View, Text } from 'react-native';
@@ -17,7 +17,8 @@ import { getToken, removeToken } from '../utils/secureStorage';
 
 const Stack = createStackNavigator();
 
-const AppNavigator = () => {
+// Convert to use forwardRef to properly handle the navigation ref
+const AppNavigator = forwardRef((props, ref) => {
   const context = useContext(AuthGlobal);
   const [initializing, setInitializing] = useState(true);
   const [firebaseUser, setFirebaseUser] = useState(null);
@@ -113,7 +114,7 @@ const AppNavigator = () => {
   }
 
   return (
-    <NavigationContainer>
+    <NavigationContainer ref={ref}>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         {context.stateUser.isAuthenticated ? (
           // User is signed in
@@ -131,6 +132,6 @@ const AppNavigator = () => {
       </Stack.Navigator>
     </NavigationContainer>
   );
-};
+});
 
 export default AppNavigator;

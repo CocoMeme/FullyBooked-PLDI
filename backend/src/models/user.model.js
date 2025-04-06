@@ -53,6 +53,31 @@ const userSchema = new mongoose.Schema({
         type: String,
         default: null,
     },
+    // Push notification tokens
+    notificationTokens: [{
+        token: {
+            type: String,
+            required: true
+        },
+        deviceType: {
+            type: String,
+            enum: ['android', 'ios', 'web'],
+            required: true
+        },
+        tokenType: {
+            type: String,
+            enum: ['expo', 'fcm'],
+            default: 'expo'
+        },
+        createdAt: {
+            type: Date,
+            default: Date.now
+        },
+        lastUsed: {
+            type: Date,
+            default: Date.now
+        }
+    }],
 
     // Courier information nested in a single object
     courier: {

@@ -15,6 +15,8 @@ import { COLORS, FONTS, SIZES } from '../../constants/theme';
 import Header from '../Header';
 import { api, API_URL } from '../../services/api';
 import axios from 'axios';
+import Ionicons from 'react-native-vector-icons/Ionicons';
+import { MaterialIcons } from '@expo/vector-icons';
 
 const OrderDetails = ({ route, navigation }) => {
   const { orderId } = route.params;
@@ -213,11 +215,13 @@ const OrderDetails = ({ route, navigation }) => {
     // Look up book details using the string ID
     const bookDetails = booksDetails[bookIdString] || {};
     const bookTitle = bookDetails.title || 'Book details not available';
+    const bookAuthor = bookDetails.author || 'Unknown author';
     const bookPrice = bookDetails.price || 0;
     const bookDiscountPrice = bookDetails.discountPrice || 0;
     const hasDiscount = bookDetails.tag === 'Sale' && bookDiscountPrice > 0;
     const finalPrice = hasDiscount ? bookDiscountPrice : bookPrice;
     const bookCover = bookDetails.coverImage?.[0] || null;
+    const bookRating = bookDetails.averageRating || 0;
     
     return (
       <View style={styles.productItem}>
@@ -234,6 +238,24 @@ const OrderDetails = ({ route, navigation }) => {
         )}
         <View style={styles.productInfo}>
           <Text style={styles.productTitle}>{bookTitle}</Text>
+          <Text style={styles.productAuthor}>by {bookAuthor}</Text>
+          
+          {/* Rating display */}
+          <View style={styles.ratingContainer}>
+            {[1, 2, 3, 4, 5].map((star) => (
+              <Ionicons
+                key={star}
+                name={star <= Math.round(bookRating) ? "star" : "star-outline"}
+                size={14}
+                color={star <= Math.round(bookRating) ? COLORS.warning : COLORS.gray}
+                style={{ marginRight: 2 }}
+              />
+            ))}
+            <Text style={styles.ratingText}>
+              {bookRating > 0 ? bookRating.toFixed(1) : 'No ratings'}
+            </Text>
+          </View>
+          
           {hasDiscount ? (
             <View style={styles.priceContainer}>
               <Text style={styles.originalPrice}>{formatCurrency(bookPrice)}</Text>
@@ -501,6 +523,23 @@ const styles = StyleSheet.create({
     ...FONTS.medium,
     fontSize: SIZES.medium,
     marginBottom: 2,
+  },
+  productAuthor: {
+    ...FONTS.regular,
+    fontSize: SIZES.small - 1,
+    color: COLORS.gray,
+    marginBottom: 2,
+  },
+  ratingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  ratingText: {
+    ...FONTS.regular,
+    fontSize: SIZES.small - 2,
+    color: COLORS.gray,
+    marginLeft: 4,
   },
   productPrice: {
     ...FONTS.regular,

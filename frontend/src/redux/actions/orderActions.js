@@ -22,6 +22,7 @@ export const placeOrder = (orderData) => async (dispatch) => {
     // Clear the cart after successful order
     dispatch(clearCart());
 
+    // Return the response data that includes the order information
     return response.data;
   } catch (error) {
     dispatch({

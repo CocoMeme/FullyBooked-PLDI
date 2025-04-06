@@ -23,6 +23,7 @@ import { placeOrder } from '../redux/actions/orderActions';
 import { getCartItems, updateCartItemQuantity } from '../services/database'; // SQLite functions
 import API_URL from '../services/api';
 import { FontAwesome, MaterialIcons, Ionicons, AntDesign, MaterialCommunityIcons } from '@expo/vector-icons';
+import { sendOrderCheckoutNotification } from '../utils/pushNotifications';
 
 const CartScreen = ({ navigation }) => {
   const [cartItems, setCartItems] = useState([]);
@@ -142,6 +143,7 @@ const CartScreen = ({ navigation }) => {
   // Place order function
   const handlePlaceOrder = async () => {
     try {
+      // Validate cart has items
       if (cartItems.length === 0) {
         Alert.alert('Error', 'Your cart is empty. Add items to proceed.');
         return;
@@ -158,15 +160,27 @@ const CartScreen = ({ navigation }) => {
         totalAmount: finalAmount
       };
 
-      // Dispatch the order action
-      await dispatch(placeOrder(orderData));
+      // Step 1: Place the order through Redux
+      const response = await dispatch(placeOrder(orderData));
 
-      // Clear cart and reset state after successful order
+      // Step 2: Clear cart and reset state
       setCartItems([]);
       setTotalAmount(0);
       setDiscountAmount(0);
       setFinalAmount(0);
       
+      // Step 3: Send push notification for the successful order
+      if (response && response.order) {
+        try {
+          await sendOrderCheckoutNotification(response.order);
+          console.log('Order notification sent successfully');
+        } catch (notifError) {
+          console.error('Error sending notification:', notifError);
+          // Continue with checkout flow even if notification fails
+        }
+      }
+      
+      // Step 4: Show success message with navigation options
       Alert.alert(
         'Success',
         'Order placed successfully!',
