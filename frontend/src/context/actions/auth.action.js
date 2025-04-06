@@ -141,7 +141,14 @@ export const logoutUser = (dispatch) => {
         console.error("Error signing out from Firebase:", error);
     }
     
-    dispatch(setCurrentUser({}))
+    // Explicitly reset user with empty data to ensure isAuthenticated becomes false
+    dispatch({
+        type: SET_CURRENT_USER,
+        payload: { 
+            user: {}, 
+            userData: null 
+        }
+    });
 };
 
 export const testProfileUpdate = async () => {

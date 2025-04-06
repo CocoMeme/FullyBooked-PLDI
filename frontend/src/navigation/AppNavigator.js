@@ -88,16 +88,29 @@ const AppNavigator = forwardRef((props, ref) => {
       try {
         if (context.stateUser.isAuthenticated) {
           // User is authenticated through Context API
-          setUserRole(context.stateUser.user.role || 'customer'); // Default to customer if role not specified
+          console.log('User authenticated:', {
+            isAuthenticated: context.stateUser.isAuthenticated,
+            role: context.stateUser.user.role || 'undefined',
+            userData: context.stateUser.userData ? 
+              `Found (role: ${context.stateUser.userData.role || 'undefined'})` : 'Not found'
+          });
+          
+          setUserRole(context.stateUser.user.role || 
+                     (context.stateUser.userData && context.stateUser.userData.role) || 
+                     'customer');
+                     
           if (initializing) setInitializing(false);
         } else if (firebaseUser) {
           // If Firebase is authenticated but Context is not, fetch user data
+          console.log('Firebase authenticated but context not synced');
           const token = await getToken();
           if (!token) {
             // If no token but Firebase auth exists, try to get a token from backend
             console.log('Firebase auth exists but no JWT token found - should request new token');
             // This will be handled by Auth.js
           }
+        } else {
+          console.log('User not authenticated in context or Firebase');
         }
       } catch (error) {
         console.error('Error verifying authentication:', error);
@@ -118,7 +131,9 @@ const AppNavigator = forwardRef((props, ref) => {
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         {context.stateUser.isAuthenticated ? (
           // User is signed in
-          context.stateUser.user.role === 'admin' ? (
+          // Check for admin role in multiple possible locations
+          context.stateUser.user.role === 'admin' || 
+          (context.stateUser.userData && context.stateUser.userData.role === 'admin') ? (
             // Admin navigator
             <Stack.Screen name="AdminRoot" component={AdminNavigator} />
           ) : (

@@ -4,7 +4,7 @@ import isEmpty from "../../assets/common/is-empty"
 export const initialState = {
     isAuthenticated: false,
     user: {},
-    userProfile: null,
+    userData: null,
   };
   
 export default function (state, action) {
@@ -12,9 +12,9 @@ export default function (state, action) {
         case SET_CURRENT_USER: 
         return {
             ...state,
-            isAuthenticated: !isEmpty(action.payload),
-            user: action.payload,
-            userProfile: action.userProfile
+            isAuthenticated: !isEmpty(action.payload.user),
+            user: action.payload.user || {},
+            userData: action.payload.userData
         };
         default:
             return state;
