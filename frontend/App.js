@@ -14,7 +14,6 @@ import Auth from './src/context/store/Auth';
 import Toast from 'react-native-toast-message';
 import { initDatabase } from './src/services/database';
 import { registerForPushNotificationsAsync, setupNotifications } from './src/utils/pushNotifications';
-import { configureGoogleSignin } from './src/services/googleAuthService';
 
 /**
  * Configure how notifications appear when the app is in the foreground
@@ -37,18 +36,6 @@ export default function App() {
   // References for cleanup
   const notificationListener = useRef();
   const responseListener = useRef();
-
-  // Configure GoogleSignin at app startup
-  useEffect(() => {
-    try {
-      // Explicitly import the configuration function
-      const { configureGoogleSignin } = require('./src/services/googleAuthService');
-      configureGoogleSignin();
-      console.log("Google Sign-In configured on app startup");
-    } catch (error) {
-      console.error("Failed to configure Google Sign-In:", error);
-    }
-  }, []);
 
   // Initialize app resources and services
   useEffect(() => {

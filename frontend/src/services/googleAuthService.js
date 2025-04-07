@@ -5,20 +5,6 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { auth } from './firebaseConfig';
 import baseURL from '../assets/common/baseurl';
 import { storeToken } from '../utils/secureStorage';
-import { GOOGLE_SIGNIN_CONFIG } from '../../google-auth-config';
-
-// Configure GoogleSignin at module level
-export const configureGoogleSignin = () => {
-  try {
-    GoogleSignin.configure(GOOGLE_SIGNIN_CONFIG);
-    console.log('Google Sign-In configured with:', GOOGLE_SIGNIN_CONFIG);
-  } catch (error) {
-    console.error('Error configuring Google Sign-In:', error);
-  }
-};
-
-// Run configuration immediately
-configureGoogleSignin();
 
 /**
  * Sign in with Google and handle Firebase and backend authentication.
@@ -26,9 +12,6 @@ configureGoogleSignin();
  */
 export const signInWithGoogle = async () => {
   try {
-    // Always configure to be safe - this is lightweight if already configured
-    configureGoogleSignin();
-
     // Ensure Google Play Services are available
     await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
 
