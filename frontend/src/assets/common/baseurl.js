@@ -10,9 +10,9 @@ const isEmulator = Constants.executionEnvironment === 'storeClient';
 
 if (Platform.OS === 'android') {
   if (isEmulator) {
-    baseURL = 'http://192.168.1.66:3000/api/'; 
+    baseURL = 'http://192.168.43.111:3000/api/'; 
   } else {
-    baseURL = 'http://192.168.1.66:3000/api/';
+    baseURL = 'http://192.168.43.111:3000/api/';
   }
 } else if (Platform.OS === 'ios') {
   if (isEmulator) {

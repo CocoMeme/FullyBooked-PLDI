@@ -82,7 +82,12 @@ export async function registerForPushNotificationsAsync() {
       
       // Format the token (remove the brackets)
       const originalToken = tokenData.data;
-      const formattedToken = originalToken.replace('ExponentPushToken[', '').replace(']', '');
+      let formattedToken = originalToken;
+      if (originalToken.startsWith('ExponentPushToken[') && originalToken.endsWith(']')) {
+        formattedToken = originalToken.replace('ExponentPushToken[', '').replace(']', '');
+      } else {
+        console.warn('Unexpected token format:', originalToken);
+      }
       
       // Small delay to ensure we don't have race conditions
       await new Promise(resolve => setTimeout(resolve, 1000));
@@ -219,49 +224,165 @@ export function setupNotifications(setNotification) {
 // Existing function for order status update notifications
 export const sendOrderStatusNotification = async (order, newStatus) => {
   try {
-    console.log('Initial order data:', order);
+    console.log('Sending order status notification:', { orderId: order._id, newStatus });
 
-    // Fetch complete order data if needed
-    if (!order.products) {
-      const orderDetails = await getOrderById(order.id);
-      order = { ...order, ...orderDetails };
+    // Get order details for notification
+    let orderDetails = order;
+    let bookDetails = {};
+    
+    // Extract book information from the order
+    if (order.items && order.items.length > 0) {
+      // Get all unique book IDs from the order
+      const bookIds = new Set();
+      order.items.forEach(item => {
+        const bookId = typeof item.book === 'object' ? item.book._id : item.book;
+        if (bookId) bookIds.add(String(bookId));
+      });
+      
+      // Fetch book details for the notification if they aren't already included
+      if (bookIds.size > 0) {
+        try {
+          const token = await AsyncStorage.getItem('jwt');
+          
+          await Promise.all(
+            Array.from(bookIds).map(async (bookId) => {
+              try {
+                const response = await axios.get(`${baseURL}books/${bookId}`, {
+                  headers: { Authorization: `Bearer ${token}` }
+                });
+                
+                if (response.data && response.data.book) {
+                  bookDetails[bookId] = response.data.book;
+                }
+              } catch (error) {
+                console.error(`Error fetching book ${bookId}:`, error.message);
+              }
+            })
+          );
+        } catch (error) {
+          console.error('Error fetching book details for notification:', error);
+        }
+      }
     }
-
-    // Format order summary for notification
-    const title = 'Order Status Updated';
-    const body = `${order.orderNumber} status changed to ${newStatus.toUpperCase()}`;
-
+    
+    // Create a summary of the first few items in the order
+    let itemSummary = '';
+    const items = order.items || [];
+    
+    if (items.length > 0) {
+      // Get the first 2 items to mention in the notification
+      const firstItems = items.slice(0, 2);
+      const remainingCount = items.length - 2;
+      
+      firstItems.forEach((item, index) => {
+        // Get the book ID consistently
+        const bookId = typeof item.book === 'object' ? item.book._id : item.book;
+        const bookIdStr = String(bookId);
+        
+        // Try to get the actual product name from our fetched book details
+        let productName;
+        const book = bookDetails[bookIdStr] || 
+                    (typeof item.book === 'object' ? item.book : null);
+        
+        if (book) {
+          productName = book.title || book.name;
+        } else {
+          productName = `Book ${index+1}`;
+        }
+        
+        itemSummary += `${productName} (x${item.quantity})${index < firstItems.length - 1 ? ', ' : ''}`;
+      });
+      
+      if (remainingCount > 0) {
+        itemSummary += ` and ${remainingCount} more item${remainingCount !== 1 ? 's' : ''}`;
+      }
+    }
+    
+    // Format titles based on status
+    const getTitleForStatus = (status) => {
+      switch(status.toLowerCase()) {
+        case 'shipped':
+          return 'Your Order Has Shipped!';
+        case 'delivered':
+          return 'Your Order Has Been Delivered!';
+        case 'cancelled':
+          return 'Your Order Has Been Cancelled';
+        default:
+          return 'Order Status Updated';
+      }
+    };
+    
+    // Get message for status
+    const getMessageForStatus = (status) => {
+      const orderId = order.orderNumber || order._id?.substring(0, 8).toUpperCase() || '';
+      
+      switch(status.toLowerCase()) {
+        case 'shipped':
+          return `Order #${orderId} is on its way to you! Track for delivery updates.`;
+        case 'delivered':
+          return `Order #${orderId} has been delivered. Enjoy your books!`;
+        case 'cancelled':
+          return `Order #${orderId} has been cancelled. Please contact support for details.`;
+        default:
+          return `Order #${orderId} status has been updated to ${newStatus}.`;
+      }
+    };
+    
+    // Create notification content
+    const title = getTitleForStatus(newStatus);
+    const body = getMessageForStatus(newStatus);
+    const extendedBody = itemSummary ? `${body}\n\nItems: ${itemSummary}` : body;
+    
     // Prepare notification data
     const notificationData = {
       type: 'ORDER_STATUS_UPDATE',
-      orderId: order.id,
+      orderId: order._id,
       status: newStatus,
       screen: 'NotificationDetails',
-      orderNumber: order.orderNumber,
-      products: order.products,
-      customer: order.customer,
-      orderDate: order.date || order.createdAt,
-      paymentMethod: order.paymentMethod,
-      userId: order.userId
+      notificationId: Math.random().toString(36).substring(2, 15),
+      items: order.items,
+      totalAmount: order.totalAmount,
+      orderDate: order.createdAt || new Date().toISOString(),
+      itemSummary: itemSummary
     };
-
-    // Save to local DB
-    await saveNotification(order.userId, title, body, notificationData);
-
-    // Send push notification
+    
+    // Save to local notifications database
+    const userId = order.userId || order.user;
+    if (userId) {
+      await saveNotification(userId, title, extendedBody, notificationData);
+    }
+    
+    // Schedule a notification
     await Notifications.scheduleNotificationAsync({
       content: {
         title,
-        body,
+        body: itemSummary ? `${body}\n\nItems: ${itemSummary}` : body,
         data: notificationData,
       },
-      trigger: null,
+      trigger: null, // Display immediately
     });
-
-    console.log('Push notification sent successfully.');
+    
+    // Update the order's notificationSent flag in the database
+    try {
+      const token = await AsyncStorage.getItem('jwt');
+      if (token) {
+        await axios.put(
+          `${baseURL}orders/update-notification-status/${order._id}`,
+          { notificationSent: true },
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        console.log('Order notification status updated in database');
+      }
+    } catch (updateError) {
+      console.error('Failed to update order notification status:', updateError);
+      // Continue even if database update fails - the notification was still sent
+    }
+    
+    console.log('Order status notification sent successfully');
+    return true;
   } catch (error) {
-    console.error('Error sending notification:', error);
-    throw error;
+    console.error('Error sending order status notification:', error);
+    return false;
   }
 };
 

@@ -14,6 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import Header from '../../components/Header';
 import { COLORS, FONTS, SIZES } from '../../constants/theme';
 import { fetchAllOrders, updateOrderStatus } from '../../redux/actions/orderActions';
+import { sendOrderStatusNotification } from '../../utils/pushNotifications';
 
 const formatCurrency = (amount) => {
   if (!amount && amount !== 0) return '₱0.00';
@@ -78,7 +79,19 @@ const OrderManagement = ({ navigation }) => {
 
   const handleStatusChange = async (orderId, newStatus) => {
     try {
-      await dispatch(updateOrderStatus(orderId, newStatus));
+      const result = await dispatch(updateOrderStatus(orderId, newStatus));
+      
+      // Send notification for the updated order
+      try {
+        if (result && result.order) {
+          await sendOrderStatusNotification(result.order, newStatus);
+          console.log('Order status notification sent successfully');
+        }
+      } catch (notificationError) {
+        console.error('Error sending order status notification:', notificationError);
+        // Continue with the flow even if notification fails
+      }
+      
       Alert.alert('Success', 'Order status updated successfully');
     } catch (error) {
       console.error('Error updating order status:', error);

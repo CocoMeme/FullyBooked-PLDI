@@ -87,12 +87,20 @@ export const updateOrderStatus = (orderId, status) => async (dispatch) => {
       { status }
     );
 
+    // After updating the status, fetch the complete order with population
+    // This ensures we have all the data needed for sending notifications
+    const orderDetailsResponse = await api.get(`/orders/${orderId}`);
+    const completeOrder = orderDetailsResponse.data;
+
     dispatch({
       type: types.UPDATE_ORDER_STATUS_SUCCESS,
-      payload: response.data.order
+      payload: completeOrder
     });
 
-    return response.data;
+    return {
+      message: response.data.message,
+      order: completeOrder
+    };
   } catch (error) {
     dispatch({
       type: types.UPDATE_ORDER_STATUS_FAILURE,

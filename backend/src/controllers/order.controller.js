@@ -110,12 +110,30 @@ exports.updateOrderStatus = async (req, res) => {
 
     console.log('Order found:', order);
 
+    // Record previous status for notification purposes
+    const previousStatus = order.status;
+    
+    // Update status
     order.status = status;
+    
+    // Mark notification as needed if status changed
+    if (previousStatus !== status) {
+      order.notificationSent = false;
+    }
+    
     await order.save();
 
     console.log('Order status updated successfully:', order);
 
-    res.status(200).json({ message: 'Order status updated successfully', order });
+    // Populate user details for the response
+    const populatedOrder = await Order.findById(id)
+      .populate('user', 'name email')
+      .populate('items.book', 'title price');
+
+    res.status(200).json({ 
+      message: 'Order status updated successfully', 
+      order: populatedOrder 
+    });
   } catch (error) {
     console.error('Error updating order status:', error);
     res.status(500).json({ message: 'Failed to update order status' });
@@ -178,5 +196,40 @@ exports.markItemAsReviewed = async (req, res) => {
   } catch (error) {
     console.error('Error updating item review status:', error);
     res.status(500).json({ message: 'Failed to update item review status' });
+  }
+};
+
+// Update order notification status
+exports.updateNotificationStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { notificationSent } = req.body;
+
+    console.log('Request received to update order notification status:', { id, notificationSent });
+
+    if (notificationSent === undefined) {
+      console.log('notificationSent is missing in the request body');
+      return res.status(400).json({ message: 'notificationSent status is required' });
+    }
+
+    const order = await Order.findById(id);
+    if (!order) {
+      console.log('Order not found with ID:', id);
+      return res.status(404).json({ message: 'Order not found' });
+    }
+
+    // Update the notification status
+    order.notificationSent = notificationSent;
+    await order.save();
+
+    console.log('Order notification status updated successfully:', order);
+
+    res.status(200).json({ 
+      message: 'Order notification status updated successfully', 
+      order 
+    });
+  } catch (error) {
+    console.error('Error updating order notification status:', error);
+    res.status(500).json({ message: 'Failed to update order notification status' });
   }
 };
